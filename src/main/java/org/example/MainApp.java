@@ -21,7 +21,7 @@ public class MainApp extends Application {
 
         Scene scene = new Scene(root, 1000, 650);
 
-        stage.setTitle("Desmos");
+        stage.setTitle("Pika Plotter");
         stage.setScene(scene);
         stage.setMinWidth(800);
         stage.setMinHeight(500);
