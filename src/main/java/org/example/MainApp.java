@@ -21,7 +21,7 @@ public class MainApp extends Application {
 
         Scene scene = new Scene(root, 1000, 650);
 
-        stage.setTitle("Equation Plotter");
+        stage.setTitle("Desmos");
         stage.setScene(scene);
         stage.setMinWidth(800);
         stage.setMinHeight(500);
@@ -31,7 +31,4 @@ public class MainApp extends Application {
     public static void main(String[] args) {
         launch(args);
     }
-    //Rahul is a Bad Boy
-    //I love eating teheri
-    // We are building a equation plotter app like desmos
 }
