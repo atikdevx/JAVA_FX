@@ -15,6 +15,24 @@ public class GraphCanvas extends Canvas {
 
     private final int minorStep = 1;
     private final int majorStep = 5;
+    private int niceStep(double units) {
+        // units = about how many numbers visible on axis
+        // returns a "nice" step: 1,2,5,10,20...
+        if (units <= 10) return 1;
+        if (units <= 20) return 2;
+        if (units <= 50) return 5;
+        if (units <= 100) return 10;
+        if (units <= 200) return 20;
+        return 50;
+    }
+
+    private int floorToStep(double v, int step) {
+        return (int) Math.floor(v / step) * step;
+    }
+
+    private int ceilToStep(double v, int step) {
+        return (int) Math.ceil(v / step) * step;
+    }
 
     public GraphCanvas() {
         // resize হলে redraw
@@ -102,146 +120,58 @@ public class GraphCanvas extends Canvas {
         g.strokeLine(yAxisX, 0, yAxisX, h);   // Y-axis
 
         // -------- Numbering: like Desmos (major ticks only) --------
+        // -------- Dynamic Numbering (fills whole screen) --------
         g.setFill(Color.web("#444444"));
         g.setFont(Font.font(12));
 
-        // x labels on x-axis (every 2 or 5; you want -10..10 style, so do 2)
-        for (int x = -10; x <= 10; x += 2) {
+// visible world range based on window size
+        double xVisMin = xCenter - halfWUnits;
+        double xVisMax = xCenter + halfWUnits;
+
+        double yVisMin = yCenter - halfHUnits;
+        double yVisMax = yCenter + halfHUnits;
+
+// choose label step so it doesn't become too crowded
+        int xStep = niceStep(xVisMax - xVisMin);
+        int yStep = niceStep(yVisMax - yVisMin);
+
+// start/end aligned to step
+        int xStart = floorToStep(xVisMin, xStep);
+        int xEnd   = ceilToStep(xVisMax, xStep);
+
+        int yStart = floorToStep(yVisMin, yStep);
+        int yEnd   = ceilToStep(yVisMax, yStep);
+
+// X-axis labels (left to right)
+        for (int x = xStart; x <= xEnd; x += xStep) {
             double px = wxToPx(x);
-            g.fillText(String.valueOf(x), px + 2, xAxisY + 14);
+            // show label only if within screen
+            if (px >= 0 && px <= w) {
+                g.fillText(String.valueOf(x), px + 2, xAxisY + 14);
+            }
         }
 
-        // y labels on y-axis (-6..6)
-        for (int y = -6; y <= 6; y += 2) {
-            if (y == 0) continue;
+// Y-axis labels (top to bottom)
+        for (int y = yStart; y <= yEnd; y += yStep) {
+            if (y == 0) continue; // 0 বাদ দিলে clean দেখায়
             double py = wyToPy(y);
-            g.fillText(String.valueOf(y), yAxisX + 6, py - 2);
+            if (py >= 0 && py <= h) {
+                g.fillText(String.valueOf(y), yAxisX + 6, py - 2);
+            }
         }
-    }
-}
 
-//package com.equationplotter.ui;
-//import javafx.scene.text.Font;
-//import javafx.scene.canvas.Canvas;
-//import javafx.scene.canvas.GraphicsContext;
-//import javafx.scene.paint.Color;
-//
-//public class GraphCanvas extends Canvas {
-//    private double xMin=-10,xMax=10;
-//    private double yMin=-6,yMax=6;
-//    // grid
-//    private int minorStep=1;
-//    private int majorStep=5;
-//    @Override
-//    public boolean isResizable() {
-//        return true;
-//    }
-//
-//    @Override
-//    public double prefWidth(double height) {
-//        return getWidth();
-//    }
-//
-//    @Override
-//    public double prefHeight(double width) {
-//        return getHeight();
-//    }
-//
-//    @Override
-//    public void resize(double width, double height) {
-//        setWidth(width);
-//        setHeight(height);
-//        draw();
-//    }
-//
-//
-//    // grid settings
-//    private double gridStep = 40;   // grid line distance (px)
-//    private double axisWidth = 2.5; // axes thickness
-//    private double gridWidth = 1.0; // normal grid thickness
-//
-//    public GraphCanvas(double width, double height) {
-//        super(width, height);
-//
-//        // redraw when resized
-//        widthProperty().addListener((obs, oldV, newV) -> draw());
-//        heightProperty().addListener((obs, oldV, newV) -> draw());
-//
-//        draw();
-//    }
-//    public void draw() {
-//        double w = getWidth();
-//        double h = getHeight();
-//
-//        GraphicsContext g = getGraphicsContext2D();
-//
-//        // background
-//        g.setFill(Color.WHITE);
-//        g.fillRect(0, 0, w, h);
-//
-//        // pixels per unit
-//        double sx = w / (xMax - xMin);
-//        double sy = h / (yMax - yMin);
-//
-//        // convert world -> screen
-//        // screenX = (x - xMin) * sx
-//        // screenY = (yMax - y) * sy   (because y goes up, screen goes down)
-//
-//        // -------- Minor Grid (1 unit) light --------
-//        g.setStroke(Color.web("#eeeeee"));
-//        g.setLineWidth(1);
-//
-//        for (int x = (int) xMin; x <= (int) xMax; x += minorStep) {
-//            double px = (x - xMin) * sx;
-//            g.strokeLine(px, 0, px, h);
-//        }
-//        for (int y = (int) yMin; y <= (int) yMax; y += minorStep) {
-//            double py = (yMax - y) * sy;
-//            g.strokeLine(0, py, w, py);
-//        }
-//
-//        // -------- Major Grid (5 unit) darker --------
-//        g.setStroke(Color.web("#cccccc"));
-//        g.setLineWidth(1.3);
-//
-//        for (int x = (int) xMin; x <= (int) xMax; x += majorStep) {
-//            double px = (x - xMin) * sx;
-//            g.strokeLine(px, 0, px, h);
-//        }
-//        for (int y = (int) yMin; y <= (int) yMax; y += majorStep) {
-//            double py = (yMax - y) * sy;
-//            g.strokeLine(0, py, w, py);
-//        }
-//
-//        // -------- Axes (bold) --------
-//        double xAxisY = (yMax - 0) * sy;      // y=0
-//        double yAxisX = (0 - xMin) * sx;      // x=0
-//
-//        g.setStroke(Color.web("#666666"));
-//        g.setLineWidth(2.6);
-//        g.strokeLine(0, xAxisY, w, xAxisY);   // X axis
-//        g.strokeLine(yAxisX, 0, yAxisX, h);   // Y axis
-//
-//        // -------- Numbering on axes --------
-//        g.setFill(Color.web("#444444"));
-//        g.setFont(javafx.scene.text.Font.font(12));
-//
-//        // x-axis labels: -10 to +10
-//        for (int x = (int) xMin; x <= (int) xMax; x += 2) { // 2 step দিলে clean দেখায়
-//            double px = (x - xMin) * sx;
-//            // label near x-axis line
+
+        // x labels on x-axis (every 2 or 5; you want -10..10 style, so do 2)
+//        for (int x = -10; x <= 10; x += 2) {
+//            double px = wxToPx(x);
 //            g.fillText(String.valueOf(x), px + 2, xAxisY + 14);
 //        }
 //
-//        // y-axis labels: -6 to +6
-//        for (int y = (int) yMin; y <= (int) yMax; y += 2) {
-//            double py = (yMax - y) * sy;
-//            // label near y-axis line
-//            if (y != 0) { // 0 বাদ দিলে clutter কমে
-//                g.fillText(String.valueOf(y), yAxisX + 6, py - 2);
-//            }
+//        // y labels on y-axis (-6..6)
+//        for (int y = -6; y <= 6; y += 2) {
+//            if (y == 0) continue;
+//            double py = wyToPy(y);
+//            g.fillText(String.valueOf(y), yAxisX + 6, py - 2);
 //        }
-//    }
-//
-//
-//}
+    }
+}
