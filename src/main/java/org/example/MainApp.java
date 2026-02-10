@@ -1,31 +1,37 @@
 package com.equationplotter;
 
+import com.equationplotter.ui.HomeView;
+import com.equationplotter.ui.WorkspaceView;
 import javafx.application.Application;
-import javafx.geometry.Insets;
 import javafx.scene.Scene;
-import javafx.scene.control.Label;
-import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
 
 public class MainApp extends Application {
 
+    private Stage stage;
+
     @Override
     public void start(Stage stage) {
-        BorderPane root = new BorderPane();
+        this.stage = stage;
 
-        Label title = new Label("Equation Plotter (JavaFX) - Window Ready");
-        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+        stage.setTitle("Pika Plotter");
+        stage.setMinWidth(1152);
+        stage.setMinHeight(945);
 
-        root.setTop(title);
-        BorderPane.setMargin(title, new Insets(20));
-
-        Scene scene = new Scene(root, 1000, 650);
-
-        stage.setTitle("Pika Plotter handle Rahul");
-        stage.setScene(scene);
-        stage.setMinWidth(800);
-        stage.setMinHeight(500);
+        showHome();
         stage.show();
+    }
+
+    private void showHome() {
+        HomeView home = new HomeView(this::showWorkspace);
+        Scene scene = new Scene(home, 1152, 945);
+        stage.setScene(scene);
+    }
+
+    private void showWorkspace() {
+        WorkspaceView workspace = new WorkspaceView();
+        Scene scene = new Scene(workspace, 1152, 945);
+        stage.setScene(scene);
     }
 
     public static void main(String[] args) {
