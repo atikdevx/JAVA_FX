@@ -7,7 +7,7 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 public class MainApp extends Application {
-
+ // atik is a good boy
     private Stage stage;
 
     @Override
