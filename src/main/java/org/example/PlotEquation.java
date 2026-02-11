@@ -1,3 +1,4 @@
+
 package com.equationplotter.ui;
 
 import javafx.scene.paint.Color;
