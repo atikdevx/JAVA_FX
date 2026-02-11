@@ -33,11 +33,16 @@ public class GraphCanvas extends Canvas {
     private int ceilToStep(double v, int step) {
         return (int) Math.ceil(v / step) * step;
     }
-
     public GraphCanvas() {
-        // resize হলে redraw
-        widthProperty().addListener((o,a,b)->draw());
-        heightProperty().addListener((o,a,b)->draw());
+        // initial safe size (0 হলে draw skip হয়, তাই পরে parent থেকে set হবে)
+        setWidth(800);
+        setHeight(600);
+
+        // redraw when width/height changes
+        widthProperty().addListener((o, a, b) -> draw());
+        heightProperty().addListener((o, a, b) -> draw());
+
+        draw();
     }
 
     @Override
@@ -159,19 +164,6 @@ public class GraphCanvas extends Canvas {
                 g.fillText(String.valueOf(y), yAxisX + 6, py - 2);
             }
         }
-
-
         // x labels on x-axis (every 2 or 5; you want -10..10 style, so do 2)
-//        for (int x = -10; x <= 10; x += 2) {
-//            double px = wxToPx(x);
-//            g.fillText(String.valueOf(x), px + 2, xAxisY + 14);
-//        }
-//
-//        // y labels on y-axis (-6..6)
-//        for (int y = -6; y <= 6; y += 2) {
-//            if (y == 0) continue;
-//            double py = wyToPy(y);
-//            g.fillText(String.valueOf(y), yAxisX + 6, py - 2);
-//        }
     }
 }
