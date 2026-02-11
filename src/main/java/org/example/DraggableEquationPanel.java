@@ -10,7 +10,9 @@ import javafx.scene.paint.Color;
 import javafx.util.Duration;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public class DraggableEquationPanel extends VBox {
@@ -28,12 +30,18 @@ public class DraggableEquationPanel extends VBox {
     private static final double MIN_W = 180;
 
     private final Consumer<List<PlotEquation>> onChange;
+
+    // typing করার সময় heavy redraw কমানোর জন্য
     private final PauseTransition debounce = new PauseTransition(Duration.millis(180));
+
+    // ✅ each row -> equation state preserve (text, color, visible)
+    private final Map<HBox, PlotEquation> eqByRow = new HashMap<>();
 
     public DraggableEquationPanel(Consumer<List<PlotEquation>> onChange) {
         this.onChange = onChange;
 
         setFillWidth(true);
+
         setPrefWidth(EXPANDED_W);
         setMinWidth(EXPANDED_W);
         setMaxWidth(EXPANDED_W);
@@ -42,11 +50,12 @@ public class DraggableEquationPanel extends VBox {
         setPadding(new Insets(12));
         setStyleExpanded();
 
-        // ----- header -----
+        // -------- Header (drag handle) --------
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(9, 12, 9, 12));
         header.setCursor(Cursor.MOVE);
         header.setMaxWidth(Double.MAX_VALUE);
+
         header.setBackground(new Background(new BackgroundFill(
                 Color.rgb(245, 245, 245, 0.90), new CornerRadii(12), Insets.EMPTY
         )));
@@ -72,6 +81,7 @@ public class DraggableEquationPanel extends VBox {
             dragOffsetX = e.getX();
             dragOffsetY = e.getY();
         });
+
         header.setOnMouseDragged(e -> {
             double newX = getLayoutX() + (e.getX() - dragOffsetX);
             double newY = getLayoutY() + (e.getY() - dragOffsetY);
@@ -86,19 +96,20 @@ public class DraggableEquationPanel extends VBox {
                 newX = Math.max(0, Math.min(newX, pw - myW));
                 newY = Math.max(0, Math.min(newY, ph - myH));
             }
+
             relocate(newX, newY);
         });
 
-        // content
+        // -------- Content --------
         addBtn.setMaxWidth(Double.MAX_VALUE);
         addBtn.setStyle("-fx-padding: 10 12; -fx-background-radius: 10;");
-        addBtn.setOnAction(e -> addRow(null, null));
+        addBtn.setOnAction(e -> addRow("", randomColor()));
 
         rowsBox.setFillWidth(true);
         rowsBox.setMaxWidth(Double.MAX_VALUE);
         rowsBox.setPadding(new Insets(2));
 
-        // debounce update
+        // debounce end -> update graph
         debounce.setOnFinished(e -> pushUpdate());
 
         // minimize
@@ -106,16 +117,18 @@ public class DraggableEquationPanel extends VBox {
 
         getChildren().setAll(header, addBtn, rowsBox);
 
-        // first row
+        // default one row
         addRow("y=4x", Color.web("#2563eb"));
         pushUpdate();
     }
 
+    // ---------------- Minimize ----------------
     private void toggleMinimize() {
         minimized = !minimized;
 
         if (minimized) {
             minBtn.setText("▸");
+
             setStyle("-fx-background-color: transparent; -fx-border-color: transparent;");
             setPadding(Insets.EMPTY);
             setSpacing(0);
@@ -128,6 +141,7 @@ public class DraggableEquationPanel extends VBox {
             setPickOnBounds(false);
         } else {
             minBtn.setText("▾");
+
             setPickOnBounds(true);
 
             setPrefWidth(EXPANDED_W);
@@ -136,8 +150,8 @@ public class DraggableEquationPanel extends VBox {
 
             setPadding(new Insets(12));
             setSpacing(10);
-            setStyleExpanded();
 
+            setStyleExpanded();
             getChildren().setAll(header, addBtn, rowsBox);
         }
 
@@ -155,6 +169,7 @@ public class DraggableEquationPanel extends VBox {
         );
     }
 
+    // ---------------- Row creation ----------------
     private void addRow(String initialText, Color initialColor) {
         HBox row = new HBox(10);
         row.setAlignment(Pos.CENTER_LEFT);
@@ -163,11 +178,18 @@ public class DraggableEquationPanel extends VBox {
         picker.setPrefWidth(55);
 
         TextField tf = new TextField(initialText != null ? initialText : "");
-        tf.setPromptText("y = ... (x^2, sin(x), 5x+1)");
+        tf.setPromptText("y=... or x^2+y^2=1 or xy=1 or y^2=4x");
         tf.setMaxWidth(Double.MAX_VALUE);
         tf.setPrefHeight(36);
         tf.setStyle("-fx-background-radius: 10; -fx-padding: 9 10;");
         HBox.setHgrow(tf, Priority.ALWAYS);
+
+        Button eye = new Button("👁");
+        eye.setStyle(
+                "-fx-background-radius: 10;" +
+                        "-fx-padding: 6 10;" +
+                        "-fx-background-color: rgba(0,0,0,0.06);"
+        );
 
         Button del = new Button("✕");
         del.setStyle(
@@ -177,15 +199,40 @@ public class DraggableEquationPanel extends VBox {
                         "-fx-text-fill: #b91c1c;"
         );
 
-        // events -> update graph
-        tf.textProperty().addListener((o,a,b) -> debounce.playFromStart());
-        picker.valueProperty().addListener((o,a,b) -> debounce.playFromStart());
+        // ✅ state object attach
+        PlotEquation eq = new PlotEquation(tf.getText(), picker.getValue());
+        eqByRow.put(row, eq);
+
+        // input change -> update
+        tf.textProperty().addListener((o, a, b) -> debounce.playFromStart());
+        picker.valueProperty().addListener((o, a, b) -> debounce.playFromStart());
+
+        // hide/show toggle
+        eye.setOnAction(e -> {
+            PlotEquation current = eqByRow.get(row);
+            if (current == null) return;
+
+            current.setVisible(!current.isVisible());
+
+            if (current.isVisible()) {
+                eye.setText("👁");
+                eye.setOpacity(1.0);
+            } else {
+                eye.setText("🚫");
+                eye.setOpacity(0.6);
+            }
+
+            pushUpdate();
+        });
+
+        // delete row
         del.setOnAction(e -> {
+            eqByRow.remove(row);
             rowsBox.getChildren().remove(row);
             pushUpdate();
         });
 
-        row.getChildren().addAll(picker, tf, del);
+        row.getChildren().addAll(picker, tf, eye, del);
         rowsBox.getChildren().add(row);
 
         applyCss();
@@ -193,6 +240,7 @@ public class DraggableEquationPanel extends VBox {
         debounce.playFromStart();
     }
 
+    // ---------------- Update graph ----------------
     private void pushUpdate() {
         if (onChange == null) return;
 
@@ -210,15 +258,28 @@ public class DraggableEquationPanel extends VBox {
             }
 
             if (tf == null || picker == null) continue;
-            String text = tf.getText() == null ? "" : tf.getText().trim();
-            if (text.isBlank()) continue;
 
-            eqs.add(new PlotEquation(text, picker.getValue()));
+            String text = tf.getText() == null ? "" : tf.getText().trim();
+
+            PlotEquation eq = eqByRow.get(row);
+            if (eq == null) {
+                eq = new PlotEquation(text, picker.getValue());
+                eqByRow.put(row, eq);
+            } else {
+                eq.setRawText(text);
+                eq.setColor(picker.getValue());
+            }
+
+            // empty হলে add করবো না (graph remove)
+            if (!text.isBlank()) {
+                eqs.add(eq);
+            }
         }
 
         onChange.accept(eqs);
     }
 
+    // ---------------- Colors ----------------
     private Color randomColor() {
         Color[] palette = new Color[]{
                 Color.web("#2563eb"), // blue

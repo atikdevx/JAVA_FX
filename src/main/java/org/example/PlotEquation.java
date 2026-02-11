@@ -5,9 +5,15 @@ import net.objecthunter.exp4j.Expression;
 import net.objecthunter.exp4j.ExpressionBuilder;
 
 public class PlotEquation {
+
     private String rawText;
     private Color color;
-    private Expression expr; // compiled expression in terms of x
+    private boolean visible = true;
+
+    private Expression explicitExpr;   // y = f(x)
+    private Expression implicitExpr;   // f(x,y) = 0
+
+    private boolean isImplicit = false;
 
     public PlotEquation(String rawText, Color color) {
         this.rawText = rawText;
@@ -16,54 +22,78 @@ public class PlotEquation {
     }
 
     public String getRawText() { return rawText; }
-
     public void setRawText(String rawText) {
         this.rawText = rawText;
         compile();
     }
 
     public Color getColor() { return color; }
-
     public void setColor(Color color) { this.color = color; }
 
-    public double eval(double x) {
-        if (expr == null) return Double.NaN;
+    public boolean isVisible() { return visible; }
+    public void setVisible(boolean v) { visible = v; }
+
+    public boolean isImplicit() { return isImplicit; }
+
+    // ---------- evaluate ----------
+
+    public double evalExplicit(double x) {
+        if (explicitExpr == null) return Double.NaN;
         try {
-            return expr.setVariable("x", x).evaluate();
+            return explicitExpr.setVariable("x", x).evaluate();
         } catch (Exception e) {
             return Double.NaN;
         }
     }
 
-    private void compile() {
+    public double evalImplicit(double x, double y) {
+        if (implicitExpr == null) return Double.NaN;
         try {
-            String cleaned = normalize(rawText);
-            if (cleaned.isBlank()) { expr = null; return; }
-
-            expr = new ExpressionBuilder(cleaned)
-                    .variable("x")
-                    .build();
+            return implicitExpr
+                    .setVariable("x", x)
+                    .setVariable("y", y)
+                    .evaluate();
         } catch (Exception e) {
-            expr = null;
+            return Double.NaN;
         }
     }
 
-    // "y=4x^2" => "4*x^2", "2(x+1)" => "2*(x+1)"
-    private String normalize(String s) {
-        if (s == null) return "";
-        s = s.trim().replace(" ", "");
+    // ---------- compile ----------
 
-        if (s.startsWith("y=") || s.startsWith("Y=")) s = s.substring(2);
+    private void compile() {
+        try {
+            String s = rawText.trim();
 
-        // 4x -> 4*x
-        s = s.replaceAll("(\\d)(x)", "$1*$2");
+            // implicit detection
+            if (s.contains("=") && !s.startsWith("y=")) {
+                // example: x^2 + y^2 = 1  →  x^2 + y^2 - (1)
+                String[] parts = s.split("=");
+                String expr = "(" + parts[0] + ")-(" + parts[1] + ")";
 
-        // 2( -> 2*(
-        s = s.replaceAll("(\\d)\\(", "$1*(");
+                implicitExpr = new ExpressionBuilder(expr)
+                        .variables("x", "y")
+                        .build();
 
-        // )x -> )*x
-        s = s.replaceAll("\\)(x)", ")*$1");
+                explicitExpr = null;
+                isImplicit = true;
+                return;
+            }
 
-        return s;
+            // explicit y = f(x)
+            if (s.startsWith("y=")) s = s.substring(2);
+
+            s = s.replaceAll("(\\d)(x)", "$1*$2");
+
+            explicitExpr = new ExpressionBuilder(s)
+                    .variable("x")
+                    .build();
+
+            implicitExpr = null;
+            isImplicit = false;
+
+        } catch (Exception e) {
+            explicitExpr = null;
+            implicitExpr = null;
+        }
     }
 }
