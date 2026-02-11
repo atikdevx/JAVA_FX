@@ -1,36 +1,39 @@
 package com.equationplotter.ui;
 
+import javafx.animation.PauseTransition;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
+import javafx.util.Duration;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
 
 public class DraggableEquationPanel extends VBox {
 
-    private double dragOffsetX;
-    private double dragOffsetY;
+    private double dragOffsetX, dragOffsetY;
 
-    private final VBox listBox = new VBox(10);
+    private final VBox rowsBox = new VBox(10);
     private final Button addBtn = new Button("+ Add equation");
-
-    private boolean minimized = false;
 
     private final HBox header = new HBox(10);
     private final Button minBtn = new Button("▾");
+    private boolean minimized = false;
 
-    private static final double EXPANDED_W = 360;
+    private static final double EXPANDED_W = 380;
     private static final double MIN_W = 180;
 
-    public DraggableEquationPanel() {
+    private final Consumer<List<PlotEquation>> onChange;
+    private final PauseTransition debounce = new PauseTransition(Duration.millis(180));
 
-        // ✅ VBox children যেন full width নেয়
+    public DraggableEquationPanel(Consumer<List<PlotEquation>> onChange) {
+        this.onChange = onChange;
+
         setFillWidth(true);
-
-        // expanded size
         setPrefWidth(EXPANDED_W);
         setMinWidth(EXPANDED_W);
         setMaxWidth(EXPANDED_W);
@@ -39,12 +42,11 @@ public class DraggableEquationPanel extends VBox {
         setPadding(new Insets(12));
         setStyleExpanded();
 
-        // ----- Header -----
+        // ----- header -----
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(9, 12, 9, 12));
         header.setCursor(Cursor.MOVE);
-        header.setMaxWidth(Double.MAX_VALUE); // ✅ header full width
-
+        header.setMaxWidth(Double.MAX_VALUE);
         header.setBackground(new Background(new BackgroundFill(
                 Color.rgb(245, 245, 245, 0.90), new CornerRadii(12), Insets.EMPTY
         )));
@@ -65,12 +67,11 @@ public class DraggableEquationPanel extends VBox {
 
         header.getChildren().addAll(title, spacer, minBtn);
 
-        // ✅ Drag (works even minimized)
+        // drag
         header.setOnMousePressed(e -> {
             dragOffsetX = e.getX();
             dragOffsetY = e.getY();
         });
-
         header.setOnMouseDragged(e -> {
             double newX = getLayoutX() + (e.getX() - dragOffsetX);
             double newY = getLayoutY() + (e.getY() - dragOffsetY);
@@ -85,26 +86,29 @@ public class DraggableEquationPanel extends VBox {
                 newX = Math.max(0, Math.min(newX, pw - myW));
                 newY = Math.max(0, Math.min(newY, ph - myH));
             }
-
             relocate(newX, newY);
         });
 
-        // ----- Content -----
-        addBtn.setMaxWidth(Double.MAX_VALUE); // ✅ full width button
+        // content
+        addBtn.setMaxWidth(Double.MAX_VALUE);
         addBtn.setStyle("-fx-padding: 10 12; -fx-background-radius: 10;");
-        addBtn.setOnAction(e -> addEquationField());
+        addBtn.setOnAction(e -> addRow(null, null));
 
-        listBox.setFillWidth(true);
-        listBox.setMaxWidth(Double.MAX_VALUE); // ✅ list full width
-        listBox.setPadding(new Insets(4, 2, 2, 2));
+        rowsBox.setFillWidth(true);
+        rowsBox.setMaxWidth(Double.MAX_VALUE);
+        rowsBox.setPadding(new Insets(2));
 
-        // first field
-        addEquationField();
+        // debounce update
+        debounce.setOnFinished(e -> pushUpdate());
 
-        // minimize toggle
+        // minimize
         minBtn.setOnAction(e -> toggleMinimize());
 
-        getChildren().setAll(header, addBtn, listBox);
+        getChildren().setAll(header, addBtn, rowsBox);
+
+        // first row
+        addRow("y=4x", Color.web("#2563eb"));
+        pushUpdate();
     }
 
     private void toggleMinimize() {
@@ -112,9 +116,7 @@ public class DraggableEquationPanel extends VBox {
 
         if (minimized) {
             minBtn.setText("▸");
-
-            // minimized = only header pill, no big white overlay
-            setStyleMinimized();
+            setStyle("-fx-background-color: transparent; -fx-border-color: transparent;");
             setPadding(Insets.EMPTY);
             setSpacing(0);
 
@@ -124,10 +126,8 @@ public class DraggableEquationPanel extends VBox {
 
             getChildren().setAll(header);
             setPickOnBounds(false);
-
         } else {
             minBtn.setText("▾");
-
             setPickOnBounds(true);
 
             setPrefWidth(EXPANDED_W);
@@ -136,12 +136,11 @@ public class DraggableEquationPanel extends VBox {
 
             setPadding(new Insets(12));
             setSpacing(10);
-
             setStyleExpanded();
-            getChildren().setAll(header, addBtn, listBox);
+
+            getChildren().setAll(header, addBtn, rowsBox);
         }
 
-        // ✅ important: CSS/layout refresh
         applyCss();
         layout();
     }
@@ -156,23 +155,80 @@ public class DraggableEquationPanel extends VBox {
         );
     }
 
-    private void setStyleMinimized() {
-        setStyle("-fx-background-color: transparent; -fx-border-color: transparent;");
-    }
+    private void addRow(String initialText, Color initialColor) {
+        HBox row = new HBox(10);
+        row.setAlignment(Pos.CENTER_LEFT);
 
-    private void addEquationField() {
-        TextField tf = new TextField();
-        tf.setPromptText("y = ...  (e.g. x^2, sin(x))");
+        ColorPicker picker = new ColorPicker(initialColor != null ? initialColor : randomColor());
+        picker.setPrefWidth(55);
 
-        // ✅ make it BIG (width + height)
+        TextField tf = new TextField(initialText != null ? initialText : "");
+        tf.setPromptText("y = ... (x^2, sin(x), 5x+1)");
         tf.setMaxWidth(Double.MAX_VALUE);
-        tf.setPrefHeight(38);
+        tf.setPrefHeight(36);
         tf.setStyle("-fx-background-radius: 10; -fx-padding: 9 10;");
+        HBox.setHgrow(tf, Priority.ALWAYS);
 
-        listBox.getChildren().add(tf);
+        Button del = new Button("✕");
+        del.setStyle(
+                "-fx-background-radius: 10;" +
+                        "-fx-padding: 6 10;" +
+                        "-fx-background-color: rgba(239,68,68,0.12);" +
+                        "-fx-text-fill: #b91c1c;"
+        );
 
-        // ✅ refresh layout so it expands instantly
+        // events -> update graph
+        tf.textProperty().addListener((o,a,b) -> debounce.playFromStart());
+        picker.valueProperty().addListener((o,a,b) -> debounce.playFromStart());
+        del.setOnAction(e -> {
+            rowsBox.getChildren().remove(row);
+            pushUpdate();
+        });
+
+        row.getChildren().addAll(picker, tf, del);
+        rowsBox.getChildren().add(row);
+
         applyCss();
         layout();
+        debounce.playFromStart();
+    }
+
+    private void pushUpdate() {
+        if (onChange == null) return;
+
+        List<PlotEquation> eqs = new ArrayList<>();
+
+        for (var n : rowsBox.getChildren()) {
+            if (!(n instanceof HBox row)) continue;
+
+            ColorPicker picker = null;
+            TextField tf = null;
+
+            for (var c : row.getChildren()) {
+                if (c instanceof ColorPicker) picker = (ColorPicker) c;
+                if (c instanceof TextField) tf = (TextField) c;
+            }
+
+            if (tf == null || picker == null) continue;
+            String text = tf.getText() == null ? "" : tf.getText().trim();
+            if (text.isBlank()) continue;
+
+            eqs.add(new PlotEquation(text, picker.getValue()));
+        }
+
+        onChange.accept(eqs);
+    }
+
+    private Color randomColor() {
+        Color[] palette = new Color[]{
+                Color.web("#2563eb"), // blue
+                Color.web("#16a34a"), // green
+                Color.web("#dc2626"), // red
+                Color.web("#7c3aed"), // purple
+                Color.web("#ea580c"), // orange
+                Color.web("#0891b2")  // cyan
+        };
+        int idx = (int) (Math.random() * palette.length);
+        return palette[idx];
     }
 }

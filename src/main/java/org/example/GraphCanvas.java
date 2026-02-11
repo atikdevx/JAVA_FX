@@ -1,12 +1,19 @@
 package com.equationplotter.ui;
-
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
+import java.util.ArrayList;
+import java.util.List;
 
 public class GraphCanvas extends Canvas {
+    private final List<PlotEquation> equations = new ArrayList<>();
 
+    public void setEquations(List<PlotEquation> eqs) {
+        equations.clear();
+        if (eqs != null) equations.addAll(eqs);
+        draw();
+    }
     private double xCenter = 0;
     private double yCenter = 0;
 
@@ -165,5 +172,49 @@ public class GraphCanvas extends Canvas {
             }
         }
         // x labels on x-axis (every 2 or 5; you want -10..10 style, so do 2)
+        // -------- Plot equations --------
+        for (PlotEquation eq : equations) {
+            if (eq == null) continue;
+
+            g.setStroke(eq.getColor());
+            g.setLineWidth(2.2);
+
+            boolean started = false;
+            double prevPx = 0, prevPy = 0;
+
+            // visible x range
+            double xPlotMin = xCenter - halfWUnits;
+            double xPlotMax = xCenter + halfWUnits;
+
+            // sample step (smaller = smoother but slower)
+            double step = 1.0 / 40.0; // 0.033 units
+
+            for (double x = xPlotMin; x <= xPlotMax; x += step) {
+                double y = eq.eval(x);
+                if (Double.isNaN(y) || Double.isInfinite(y)) {
+                    started = false;
+                    continue;
+                }
+
+                double px = wxToPx(x);
+                double py = wyToPy(y);
+
+                // if y goes off-screen too far, break line
+                if (py < -2000 || py > h + 2000) {
+                    started = false;
+                    continue;
+                }
+                if (started) {
+                    g.strokeLine(prevPx, prevPy, px, py);
+                } else {
+                    started = true;
+                }
+
+
+                prevPx = px;
+                prevPy = py;
+            }
+        }
+
     }
 }

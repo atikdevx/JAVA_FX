@@ -19,10 +19,12 @@ public class WorkspaceView extends StackPane {
             graph.draw();
         });
 
-        DraggableEquationPanel overlay = new DraggableEquationPanel();
-        overlay.setManaged(false);
+        // ✅ panel will call this when text/color changes
+        DraggableEquationPanel overlay = new DraggableEquationPanel(graph::setEquations);
 
+        overlay.setManaged(false);
         getChildren().addAll(graph, overlay);
+
         Platform.runLater(() -> {
             graph.setWidth(getWidth());
             graph.setHeight(getHeight());
@@ -30,7 +32,7 @@ public class WorkspaceView extends StackPane {
 
             overlay.applyCss();
             overlay.autosize();
-            overlay.relocate(20, 70);
+            overlay.relocate(20, 90);
         });
     }
 }
