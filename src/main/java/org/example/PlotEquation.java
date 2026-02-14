@@ -108,6 +108,10 @@ public class PlotEquation {
         // --- 5) x! -> fact(x) (Gamma-based) ---
         // also works for (x+1)! etc if user writes (x+1)!
         s = s.replaceAll("(\\([^\\)]+\\)|[a-zA-Z0-9\\.]+)!", "fact($1)");
+        // sin^-1(x) → asin(x)
+        s = s.replaceAll("sin\\^\\(?-1\\)?\\(", "asin(");
+        s = s.replaceAll("cos\\^\\(?-1\\)?\\(", "acos(");
+        s = s.replaceAll("tan\\^\\(?-1\\)?\\(", "atan(");
 
         return s;
     }
@@ -158,22 +162,48 @@ public class PlotEquation {
 
     // ================= PARAM DETECT =================
     private void detectParams(String expr, Set<String> ignore) {
-        Set<String> tokens = new HashSet<>();
 
-        for (String t : expr.split("[^a-zA-Z]")) {
-            if (t == null || t.isBlank()) continue;
-            if (ignore.contains(t)) continue;
+        Set<String> tokens = new LinkedHashSet<>();
 
-            // skip known functions
-            if (List.of("sin", "cos", "tan", "asin", "acos", "atan", "abs", "fact", "sqrt", "log", "ln", "exp", "pow")
-                    .contains(t)) continue;
+        StringBuilder current = new StringBuilder();
 
-            tokens.add(t);
+        for (int i = 0; i < expr.length(); i++) {
+            char ch = expr.charAt(i);
+
+            if (Character.isLetter(ch)) {
+                current.append(ch);
+            } else {
+                flushToken(current, tokens, ignore);
+            }
         }
+        flushToken(current, tokens, ignore);
 
         paramNames.addAll(tokens);
         for (String p : tokens) params.putIfAbsent(p, 1.0);
     }
+
+    private void flushToken(StringBuilder sb, Set<String> out, Set<String> ignore) {
+        if (sb.length() == 0) return;
+
+        String t = sb.toString();
+        sb.setLength(0);
+
+        // ignore x,y
+        if (ignore.contains(t)) return;
+
+        // known functions
+        if (Set.of(
+                "sin","cos","tan","asin","acos","atan",
+                "abs","sqrt","log","ln","exp","fact","pow"
+        ).contains(t)) return;
+
+        // 🔥 IMPORTANT: split multi-letter like "bx" → b , x
+        for (char c : t.toCharArray()) {
+            String s = String.valueOf(c);
+            if (!ignore.contains(s)) out.add(s);
+        }
+    }
+
 
     private Set<String> merge(Set<String> base, List<String> extra) {
         Set<String> s = new HashSet<>(base);

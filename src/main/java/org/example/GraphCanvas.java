@@ -241,7 +241,9 @@ public class GraphCanvas extends Canvas {
 
         // step in world units; smaller => smoother.
         // zoom in => smaller step, zoom out => bigger step
-        double step = 18.0 / unitPx;          // ~18px per cell
+        //double step = 18.0 / unitPx;
+        double step = 7.0 / unitPx;   // smoother near origin
+        step = Math.max(0.015, Math.min(step, 0.12));
         step = Math.max(0.03, Math.min(step, 0.20)); // clamp for performance/smoothness
 
         for (double x = xMinPlot; x <= xMaxPlot; x += step) {
