@@ -4,6 +4,7 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.StrokeLineCap;
+import javafx.scene.shape.StrokeLineJoin;
 import javafx.scene.text.Font;
 
 import java.util.ArrayList;
@@ -14,17 +15,28 @@ public class GraphCanvas extends Canvas {
     // ---------- Equations ----------
     private final List<PlotEquation> equations = new ArrayList<>();
 
+    // 🔥 ল্যাগ কমানোর জন্য ফাস্ট রেন্ডার ফ্লাগ
+    // স্লাইডার টানার সময় এটি true করে দিলে গ্রাফ দ্রুত রেন্ডার হবে
+    private boolean fastRenderMode = false;
+
     public void setEquations(List<PlotEquation> eqs) {
         equations.clear();
         if (eqs != null) equations.addAll(eqs);
         draw();
     }
 
+    // স্লাইডার টানার সময় এই মেথড কল করবে (দ্রুত রেন্ডারের জন্য)
+    public void setEquationsFast(List<PlotEquation> eqs) {
+        fastRenderMode = true;
+        equations.clear();
+        if (eqs != null) equations.addAll(eqs);
+        draw();
+        fastRenderMode = false; // আঁকা শেষ হলে আবার নরমাল মোড
+    }
+
     // ---------- View params ----------
     private double xCenter = 0;
     private double yCenter = 0;
-
-    // 1 unit = কত px (zoom)
     private double unitPx = 50;
 
     private final int minorStep = 1;
@@ -52,25 +64,21 @@ public class GraphCanvas extends Canvas {
 
     // ---------- World <-> Pixel ----------
     private double wxToPx(double x) {
-        double cx = getWidth() / 2.0;
-        return cx + (x - xCenter) * unitPx;
+        return (getWidth() / 2.0) + (x - xCenter) * unitPx;
     }
 
     private double wyToPy(double y) {
-        double cy = getHeight() / 2.0;
-        return cy - (y - yCenter) * unitPx;
+        return (getHeight() / 2.0) - (y - yCenter) * unitPx;
     }
 
     private void drawWorldLine(GraphicsContext g, double x1, double y1, double x2, double y2) {
         g.strokeLine(wxToPx(x1), wyToPy(y1), wxToPx(x2), wyToPy(y2));
     }
 
-    // linear interpolation where f crosses 0 between (a,fa) and (b,fb)
     private double interp(double a, double b, double fa, double fb) {
         double denom = (fa - fb);
         if (denom == 0) return (a + b) / 2.0;
-        double t = fa / denom;
-        return a + t * (b - a);
+        return a + (fa / denom) * (b - a);
     }
 
     // ---------- Helpers for labels ----------
@@ -99,13 +107,14 @@ public class GraphCanvas extends Canvas {
 
         GraphicsContext g = getGraphicsContext2D();
 
+        // স্মুথ লাইনের জন্য
         g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineJoin(StrokeLineJoin.ROUND);
 
         // background
         g.setFill(Color.WHITE);
         g.fillRect(0, 0, w, h);
 
-        // visible world range
         double halfWUnits = (w / 2.0) / unitPx;
         double halfHUnits = (h / 2.0) / unitPx;
 
@@ -167,7 +176,6 @@ public class GraphCanvas extends Canvas {
 
         int xStart = floorToStep(xVisMin, xStep);
         int xEnd = ceilToStep(xVisMax, xStep);
-
         int yStart = floorToStep(yVisMin, yStep);
         int yEnd = ceilToStep(yVisMax, yStep);
 
@@ -182,11 +190,11 @@ public class GraphCanvas extends Canvas {
         }
 
         // -------- Plot equations --------
+        g.setLineWidth(2.2);
         for (PlotEquation eq : equations) {
             if (eq == null || !eq.isVisible()) continue;
 
             g.setStroke(eq.getColor() == null ? Color.BLUE : eq.getColor());
-            g.setLineWidth(2.2);
 
             if (!eq.isImplicit()) {
                 plotExplicit(g, eq, halfWUnits);
@@ -196,42 +204,51 @@ public class GraphCanvas extends Canvas {
         }
     }
 
-    // ---------- Explicit plot ----------
+    // ---------- Explicit plot (Optimized) ----------
     private void plotExplicit(GraphicsContext g, PlotEquation eq, double halfWUnits) {
-
         double xMinPlot = xCenter - halfWUnits;
         double xMaxPlot = xCenter + halfWUnits;
 
-        // zoom-aware step
-        double step = Math.max(1.0 / 140.0, 1.0 / (unitPx * 3.0)); // clamp
+        // 🔥 স্লাইডার টানলে গ্রাফ দ্রুত আঁকার জন্য স্টেপ সাইজ ডাবল করে দেওয়া হলো
+        double step = Math.max(1.0 / 140.0, 1.0 / (unitPx * 2.0));
+        if (fastRenderMode) step *= 2.0; // Fast mode e resolution kom hobe
+
         boolean started = false;
         double prevX = 0, prevY = 0;
 
+        g.beginPath();
         for (double x = xMinPlot; x <= xMaxPlot; x += step) {
             double y = eq.evalExplicit(x);
+
             if (bad(y)) {
-                started = false;
-                continue;
-            }
-            if (!started) {
-                started = true;
-                prevX = x;
-                prevY = y;
-                continue;
-            }
-            // break on huge jumps (asymptote protection)
-            if (Math.abs(y - prevY) > (halfWUnits * 4)) {
-                started = false;
+                if (started) {
+                    g.stroke();
+                    started = false;
+                }
                 continue;
             }
 
-            drawWorldLine(g, prevX, prevY, x, y);
+            if (!started) {
+                g.beginPath();
+                g.moveTo(wxToPx(x), wyToPy(y));
+                started = true;
+            } else {
+                // Asymptote protection
+                if (Math.abs(y - prevY) > (halfWUnits * 4)) {
+                    g.stroke();
+                    g.beginPath();
+                    g.moveTo(wxToPx(x), wyToPy(y));
+                } else {
+                    g.lineTo(wxToPx(x), wyToPy(y));
+                }
+            }
             prevX = x;
             prevY = y;
         }
+        if (started) g.stroke();
     }
 
-    // ---------- Implicit plot (Marching Squares + asymptotic decider) ----------
+    // ---------- Implicit plot (Optimized Marching Squares) ----------
     private void plotImplicitSmooth(GraphicsContext g, PlotEquation eq, double halfWUnits, double halfHUnits) {
 
         double xMinPlot = xCenter - halfWUnits;
@@ -239,83 +256,78 @@ public class GraphCanvas extends Canvas {
         double yMinPlot = yCenter - halfHUnits;
         double yMaxPlot = yCenter + halfHUnits;
 
-        // step in world units; smaller => smoother.
-        // zoom in => smaller step, zoom out => bigger step
-        //double step = 18.0 / unitPx;
-        double step = 7.0 / unitPx;   // smoother near origin
-        step = Math.max(0.015, Math.min(step, 0.12));
-        step = Math.max(0.03, Math.min(step, 0.20)); // clamp for performance/smoothness
+        // 🔥 ল্যাগ কমানোর মেইন জায়গা:
+        // নরমাল টাইমে ডিটেইলস ভালো থাকবে, কিন্তু স্লাইডার টানার সময় রেজুলেশন একটু কমে যাবে।
+        double step = 15.0 / unitPx;
+        step = Math.max(0.02, Math.min(step, 0.15));
 
-        for (double x = xMinPlot; x <= xMaxPlot; x += step) {
-            for (double y = yMinPlot; y <= yMaxPlot; y += step) {
+        if (fastRenderMode) {
+            step *= 1.8; // স্লাইডার টানলে প্রায় দ্বিগুণ স্পিডে রেন্ডার হবে
+        }
 
-                double x0 = x, x1 = x + step;
-                double y0 = y, y1 = y + step;
+        // Cache the row values to avoid recalculating the same points twice
+        int xSteps = (int) Math.ceil((xMaxPlot - xMinPlot) / step) + 1;
+        int ySteps = (int) Math.ceil((yMaxPlot - yMinPlot) / step) + 1;
 
-                double f00 = eq.evalImplicit(x0, y0);
-                double f10 = eq.evalImplicit(x1, y0);
-                double f11 = eq.evalImplicit(x1, y1);
-                double f01 = eq.evalImplicit(x0, y1);
+        double[][] grid = new double[xSteps][ySteps];
+
+        // Pre-calculate grid
+        for (int i = 0; i < xSteps; i++) {
+            double x = xMinPlot + i * step;
+            for (int j = 0; j < ySteps; j++) {
+                double y = yMinPlot + j * step;
+                grid[i][j] = eq.evalImplicit(x, y);
+            }
+        }
+
+        // Draw from cache
+        for (int i = 0; i < xSteps - 1; i++) {
+            for (int j = 0; j < ySteps - 1; j++) {
+
+                double f00 = grid[i][j];
+                double f10 = grid[i+1][j];
+                double f01 = grid[i][j+1];
+                double f11 = grid[i+1][j+1];
 
                 if (bad(f00) || bad(f10) || bad(f11) || bad(f01)) continue;
 
-                // collect intersections on edges in consistent order:
-                // E0 bottom, E1 right, E2 top, E3 left
-                double[] p0 = null, p1 = null, p2 = null, p3 = null;
+                double x0 = xMinPlot + i * step;
+                double x1 = x0 + step;
+                double y0 = yMinPlot + j * step;
+                double y1 = y0 + step;
+
                 int count = 0;
+                double[] p0 = null, p1 = null, p2 = null, p3 = null;
 
-                if ((f00 > 0) != (f10 > 0)) { // bottom
-                    double xi = interp(x0, x1, f00, f10);
-                    p0 = new double[]{xi, y0}; count++;
+                if ((f00 > 0) != (f10 > 0)) {
+                    p0 = new double[]{interp(x0, x1, f00, f10), y0}; count++;
                 }
-                if ((f10 > 0) != (f11 > 0)) { // right
-                    double yi = interp(y0, y1, f10, f11);
-                    p1 = new double[]{x1, yi}; count++;
+                if ((f10 > 0) != (f11 > 0)) {
+                    p1 = new double[]{x1, interp(y0, y1, f10, f11)}; count++;
                 }
-                if ((f01 > 0) != (f11 > 0)) { // top
-                    double xi = interp(x0, x1, f01, f11);
-                    p2 = new double[]{xi, y1}; count++;
+                if ((f01 > 0) != (f11 > 0)) {
+                    p2 = new double[]{interp(x0, x1, f01, f11), y1}; count++;
                 }
-                if ((f00 > 0) != (f01 > 0)) { // left
-                    double yi = interp(y0, y1, f00, f01);
-                    p3 = new double[]{x0, yi}; count++;
+                if ((f00 > 0) != (f01 > 0)) {
+                    p3 = new double[]{x0, interp(y0, y1, f00, f01)}; count++;
                 }
-
-                if (count < 2) continue;
 
                 if (count == 2) {
-                    // find the two points and connect
                     double[] a = firstNonNull(p0, p1, p2, p3);
                     double[] b = secondNonNull(p0, p1, p2, p3);
                     drawWorldLine(g, a[0], a[1], b[0], b[1]);
-                    continue;
-                }
-
-                if (count == 4) {
-                    // ambiguous case. Use asymptotic decider via center value.
-                    double xc = (x0 + x1) / 2.0;
-                    double yc = (y0 + y1) / 2.0;
-                    double fc = eq.evalImplicit(xc, yc);
+                } else if (count == 4) {
+                    double fc = eq.evalImplicit((x0 + x1) / 2.0, (y0 + y1) / 2.0);
                     if (bad(fc)) continue;
 
-                    // if center sign matches f00 -> connect (bottom-left) & (top-right)
-                    // else connect (bottom-right) & (top-left)
-                    boolean sameAs00 = (fc > 0) == (f00 > 0);
-
-                    if (sameAs00) {
-                        // connect p0(bottom) with p3(left)
-                        // connect p2(top) with p1(right)
+                    if ((fc > 0) == (f00 > 0)) {
                         drawWorldLine(g, p0[0], p0[1], p3[0], p3[1]);
                         drawWorldLine(g, p2[0], p2[1], p1[0], p1[1]);
                     } else {
-                        // connect p0(bottom) with p1(right)
-                        // connect p2(top) with p3(left)
                         drawWorldLine(g, p0[0], p0[1], p1[0], p1[1]);
                         drawWorldLine(g, p2[0], p2[1], p3[0], p3[1]);
                     }
                 }
-
-                // count==3 theoretically rare due to exact-zero corners; ignore safely
             }
         }
     }
@@ -335,11 +347,12 @@ public class GraphCanvas extends Canvas {
         return null;
     }
 
+    // 🔥 Math checks optimized
     private boolean bad(double v) {
-        return Double.isNaN(v) || Double.isInfinite(v);
+        // Double.isNaN is slightly slower than primitive checks in tight loops
+        return v != v || v == Double.POSITIVE_INFINITY || v == Double.NEGATIVE_INFINITY;
     }
 
-    // optional: later zoom/pan hooks
     public void setUnitPx(double unitPx) {
         this.unitPx = Math.max(10, Math.min(unitPx, 300));
         draw();
