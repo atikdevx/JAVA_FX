@@ -1,5 +1,4 @@
 package com.equationplotter.ui;
-
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
@@ -24,8 +23,6 @@ public class GraphCanvas extends Canvas {
         if (eqs != null) equations.addAll(eqs);
         draw();
     }
-
-    // স্লাইডার টানার সময় এই মেথড কল করবে (দ্রুত রেন্ডারের জন্য)
     public void setEquationsFast(List<PlotEquation> eqs) {
         fastRenderMode = true;
         equations.clear();
@@ -331,7 +328,6 @@ public class GraphCanvas extends Canvas {
             }
         }
     }
-
     private double[] firstNonNull(double[]... arr) {
         for (double[] a : arr) if (a != null) return a;
         return null;
