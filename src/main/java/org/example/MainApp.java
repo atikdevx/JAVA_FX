@@ -21,18 +21,29 @@ public class MainApp extends Application {
         showHome();
         stage.show();
     }
-
     private void showHome() {
         HomeView home = new HomeView(this::showWorkspace);
-        Scene scene = new Scene(home, 1152, 945);
-        stage.setScene(scene);
+
+        // Jodi aage theke kono scene na thake (prothom bar run hole)
+        if (stage.getScene() == null) {
+            Scene scene = new Scene(home, 1152, 945);
+            stage.setScene(scene);
+        } else {
+            // Scene aage thekei thakle shudhu bhetorer view ta change hobe, size same thakbe
+            stage.getScene().setRoot(home);
+        }
     }
 
     private void showWorkspace() {
-        // 🔥 Back button এখান থেকে Home এ ফিরবে
         WorkspaceView workspace = new WorkspaceView(this::showHome);
-        Scene scene = new Scene(workspace);
-        stage.setScene(scene);
+
+        if (stage.getScene() == null) {
+            Scene scene = new Scene(workspace, 1152, 945);
+            stage.setScene(scene);
+        } else {
+            // Eikhaneo same, notun scene toiri na kore shudhu root change kora holo
+            stage.getScene().setRoot(workspace);
+        }
     }
 
     public static void main(String[] args) {
