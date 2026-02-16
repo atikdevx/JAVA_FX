@@ -59,7 +59,6 @@ public class DraggableEquationPanel extends VBox {
             dragOffsetX = e.getX();
             dragOffsetY = e.getY();
         });
-
         header.setOnMouseDragged(e ->
                 relocate(
                         getLayoutX() + (e.getX() - dragOffsetX),
@@ -82,7 +81,6 @@ public class DraggableEquationPanel extends VBox {
     // ================= MINIMIZE =================
     private void toggleMinimize() {
         minimized = !minimized;
-
         if (minimized) {
             minBtn.setText("▸");
             getChildren().setAll(header);
@@ -113,18 +111,25 @@ public class DraggableEquationPanel extends VBox {
         row.setAlignment(Pos.CENTER_LEFT);
 
         ColorPicker picker = new ColorPicker(color);
+        picker.setStyle("-fx-color-label-visible: false; -fx-pref-width: 40px;");
 
         TextField tf = new TextField(text);
-        tf.setPromptText("y=mx+c or sin(ax)");
+        tf.setPromptText("y=mx+c or (2,3)");
         HBox.setHgrow(tf, Priority.ALWAYS);
 
         // 👁 SHOW / HIDE BUTTON
         Button eye = new Button("👁");
+        eye.setTooltip(new Tooltip("Show/Hide Graph"));
+
+        // 🏷 LABEL TOGGLE BUTTON (New)
+        Button labelBtn = new Button("Aa");
+        labelBtn.setTooltip(new Tooltip("Toggle Label (Points only)"));
+        labelBtn.setOpacity(0.5); // Disabled look by default
 
         // ❌ DELETE BUTTON
         Button del = new Button("✕");
 
-        row.getChildren().addAll(picker, tf, eye, del);
+        row.getChildren().addAll(picker, tf, eye, labelBtn, del);
 
         VBox paramsBox = new VBox(6);
         wrap.getChildren().addAll(row, paramsBox);
@@ -136,10 +141,25 @@ public class DraggableEquationPanel extends VBox {
 
         rebuildParamsUI(paramsBox, eq);
 
+        // Update Label Button State
+        Runnable updateLabelBtn = () -> {
+            if (eq.isPoint()) {
+                labelBtn.setDisable(false);
+                labelBtn.setOpacity(eq.isLabelVisible() ? 1.0 : 0.5);
+                labelBtn.setStyle(eq.isLabelVisible() ? "-fx-background-color: #ddd;" : "");
+            } else {
+                labelBtn.setDisable(true);
+                labelBtn.setOpacity(0.3);
+                labelBtn.setStyle("");
+            }
+        };
+        updateLabelBtn.run();
+
         // ===== listeners =====
         tf.textProperty().addListener((o,a,b)->{
             eq.setRawText(b);
             rebuildParamsUI(paramsBox, eq);
+            updateLabelBtn.run(); // Check if it became a point
             pushUpdate();
         });
 
@@ -151,7 +171,6 @@ public class DraggableEquationPanel extends VBox {
         // 👁 hide/show logic
         eye.setOnAction(e -> {
             eq.setVisible(!eq.isVisible());
-
             if (eq.isVisible()) {
                 eye.setText("👁");
                 eye.setOpacity(1);
@@ -159,8 +178,16 @@ public class DraggableEquationPanel extends VBox {
                 eye.setText("🚫");
                 eye.setOpacity(0.6);
             }
+            pushUpdate();
+        });
 
-            pushUpdate(); // instant redraw
+        // 🏷 Label toggle logic
+        labelBtn.setOnAction(e -> {
+            if (eq.isPoint()) {
+                eq.setLabelVisible(!eq.isLabelVisible());
+                updateLabelBtn.run();
+                pushUpdate();
+            }
         });
 
         // ❌ delete
@@ -176,7 +203,6 @@ public class DraggableEquationPanel extends VBox {
     // ================= PARAM UI =================
     private void rebuildParamsUI(VBox box, PlotEquation eq) {
         box.getChildren().clear();
-
         for (String p : eq.getParamNames()) {
             box.getChildren().add(buildParamRow(eq, p));
         }
@@ -200,19 +226,19 @@ public class DraggableEquationPanel extends VBox {
 
         // ▶ PLAY BUTTON
         Button play = new Button("▶");
-
         final double[] dir = {1};
 
         Timeline tl = new Timeline(
                 new KeyFrame(Duration.millis(16), e -> {
-
                     double v = s.getValue();
                     double min = s.getMin();
                     double max = s.getMax();
+                    double range = max - min;
+                    // Slower smooth speed (0.1%)
+                    double step = range * 0.001;
 
-                    double nv = v + 0.08 * dir[0];
+                    double nv = v + step * dir[0];
 
-                    // 🔁 infinite back-and-forth
                     if (nv >= max) { nv = max; dir[0] = -1; }
                     else if (nv <= min) { nv = min; dir[0] = 1; }
 
@@ -231,7 +257,6 @@ public class DraggableEquationPanel extends VBox {
             }
         });
 
-        // ⚡ instant redraw on slider change
         s.valueProperty().addListener((o,a,b)->{
             double v = b.doubleValue();
             val.setText(String.format("%.2f", v));
@@ -239,20 +264,23 @@ public class DraggableEquationPanel extends VBox {
             pushUpdate();
         });
 
-        // manual min/max update
         Runnable updateRange = () -> {
             try {
                 double min = Double.parseDouble(minField.getText());
                 double max = Double.parseDouble(maxField.getText());
                 if (min >= max) return;
-
                 s.setMin(min);
                 s.setMax(max);
+                double curr = s.getValue();
+                if (curr < min) s.setValue(min);
+                if (curr > max) s.setValue(max);
             } catch (Exception ignored) {}
         };
 
         minField.setOnAction(e -> updateRange.run());
         maxField.setOnAction(e -> updateRange.run());
+        minField.focusedProperty().addListener((o, oldVal, newVal) -> { if(!newVal) updateRange.run(); });
+        maxField.focusedProperty().addListener((o, oldVal, newVal) -> { if(!newVal) updateRange.run(); });
 
         HBox rangeBox = new HBox(3, minField, new Label("…"), maxField);
 
@@ -268,20 +296,16 @@ public class DraggableEquationPanel extends VBox {
         return row;
     }
 
-    // ================= PUSH UPDATE =================
     private void pushUpdate() {
         if (onChange == null) return;
-
         List<PlotEquation> list = new ArrayList<>();
         for (PlotEquation e : eqByRow.values()) {
             if (e.getRawText() != null && !e.getRawText().isBlank())
                 list.add(e);
         }
-
         onChange.accept(list);
     }
 
-    // ================= RANDOM COLOR =================
     private Color randomColor() {
         Color[] c = {
                 Color.BLUE, Color.RED, Color.GREEN,
@@ -290,3 +314,17 @@ public class DraggableEquationPanel extends VBox {
         return c[(int)(Math.random()*c.length)];
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
