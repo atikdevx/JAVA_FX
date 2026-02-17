@@ -1,5 +1,4 @@
 package com.equationplotter.ui;
-
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -126,7 +125,7 @@ public class DraggableEquationPanel extends VBox {
         labelBtn.setTooltip(new Tooltip("Toggle Label (Points only)"));
         labelBtn.setOpacity(0.5); // Disabled look by default
 
-        // ❌ DELETE BUTTON
+        //DELETE BUTTON
         Button del = new Button("✕");
 
         row.getChildren().addAll(picker, tf, eye, labelBtn, del);

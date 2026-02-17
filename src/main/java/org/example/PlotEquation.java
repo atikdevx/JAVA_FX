@@ -3,6 +3,7 @@ package com.equationplotter.ui;
 import javafx.scene.paint.Color;
 import net.objecthunter.exp4j.Expression;
 import net.objecthunter.exp4j.ExpressionBuilder;
+import net.objecthunter.exp4j.function.Function;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -33,12 +34,34 @@ public class PlotEquation {
     // Regex to find words (potential variables)
     private static final Pattern VAR_PATTERN = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");
 
-    // Set of known functions to ignore when extracting variables
+    // Set of known functions
     private static final Set<String> KNOWN_FUNCS = new HashSet<>(Arrays.asList(
             "sin", "cos", "tan", "asin", "acos", "atan", "sinh", "cosh", "tanh",
             "sqrt", "cbrt", "abs", "ceil", "floor", "exp", "log", "log10", "log2",
-            "signum", "x", "y" // x and y are plot vars, not params (usually)
+            "signum", "x", "y", "pi", "e"
     ));
+
+    // =========================================================================
+    // 🔥 ADVANCED ASYMPTOTE HACKS: JavaFX-Safe Infinity
+    // =========================================================================
+    private static final Function LOG10_FUNC = new Function("log10", 1) {
+        @Override
+        public double apply(double... args) {
+            double v = args[0];
+            if (v <= 0) return Double.NaN;     // domain error -> break segment
+            return Math.log10(v);              // may go very negative near 0+
+        }
+    };
+
+    private static final Function LN_FUNC = new Function("log", 1) {
+        @Override
+        public double apply(double... args) {
+            double v = args[0];
+            if (v <= 0) return Double.NaN;     // domain error -> break segment
+            return Math.log(v);                // may go very negative near 0+
+        }
+    };
+
 
     public PlotEquation(String text, Color color) {
         this.rawText = text == null ? "" : text;
@@ -67,62 +90,74 @@ public class PlotEquation {
                 String sX = content.substring(0, splitIndex).trim();
                 String sY = content.substring(splitIndex + 1).trim();
 
-                // It is a point candidate. Let's try to build expressions.
-                // For points, we treat EVERYTHING as a parameter (even 'x' or 't' if used)
                 Set<String> varsX = extractVariables(sX, true);
                 Set<String> varsY = extractVariables(sY, true);
                 Set<String> allVars = new TreeSet<>(varsX);
                 allVars.addAll(varsY);
 
                 try {
-                    this.pointXExpr = new ExpressionBuilder(sX).variables(allVars).build();
-                    this.pointYExpr = new ExpressionBuilder(sY).variables(allVars).build();
+                    this.pointXExpr = new ExpressionBuilder(normalize(sX)).variables(allVars).build();
+                    this.pointYExpr = new ExpressionBuilder(normalize(sY)).variables(allVars).build();
 
-                    // Success
                     this.isPoint = true;
-
-                    // Register params
                     for (String v : allVars) {
                         if (!params.containsKey(v)) params.put(v, 1.0);
                         paramNames.add(v);
                     }
-                    return; // Done
-                } catch (Exception ignored) {
-                    // Failed to parse as expressions, might be regular equation with parens (unlikely but possible)
-                    // Fall through to equation parsing
-                }
+                    return;
+                } catch (Exception ignored) { }
             }
         }
 
         // 2. Normal Equation Parsing
         String norm = normalize(s);
 
-        // Extract params (excluding x, y)
+        // Extract params
         Set<String> vars = extractVariables(norm, false);
         for (String p : vars) {
             if (!params.containsKey(p)) params.put(p, 1.0);
             paramNames.add(p);
         }
 
-        // Check for implicit (=)
+        // 🔥 SMART EXPLICIT DETECTION 🔥
         if (norm.contains("=")) {
-            this.implicit = true;
             String[] parts = norm.split("=", 2);
-            String combined = "(" + parts[0] + ")-(" + parts[1] + ")";
-            try {
-                this.implicitExpr = new ExpressionBuilder(combined)
-                        .variables("x", "y")
-                        .variables(params.keySet())
-                        .build();
-            } catch (Exception e) {
-                this.implicitExpr = null;
+            if (parts[0].equals("y") && !parts[1].contains("y")) {
+                this.implicit = false;
+                norm = parts[1]; // Use RHS
+            } else if (parts[1].equals("y") && !parts[0].contains("y")) {
+                this.implicit = false;
+                norm = parts[0]; // Use LHS
+            } else {
+                this.implicit = true; // Truly implicit
             }
         } else {
-            // explicit y = ...
+            this.implicit = false;
+        }
+
+        // Build Expressions
+        if (this.implicit) {
+            String[] parts = norm.split("=", 2);
+            if (parts.length == 2) {
+                String combined = "(" + parts[0] + ")-(" + parts[1] + ")";
+                try {
+                    this.implicitExpr = new ExpressionBuilder(combined)
+                            .variables("x", "y")
+                            .variables(params.keySet())
+                            .function(LOG10_FUNC)
+                            .function(LN_FUNC)
+                            .build();
+                } catch (Exception e) {
+                    this.implicitExpr = null;
+                }
+            }
+        } else {
             try {
                 this.explicitExpr = new ExpressionBuilder(norm)
                         .variables("x")
                         .variables(params.keySet())
+                        .function(LOG10_FUNC)
+                        .function(LN_FUNC)
                         .build();
             } catch (Exception e) {
                 this.explicitExpr = null;
@@ -130,7 +165,6 @@ public class PlotEquation {
         }
     }
 
-    // --- Helper: Find comma separating x and y ---
     private int findTopLevelComma(String text) {
         int depth = 0;
         for (int i = 0; i < text.length(); i++) {
@@ -142,27 +176,17 @@ public class PlotEquation {
         return -1;
     }
 
-    // --- Helper: Extract variables ---
     private Set<String> extractVariables(String expr, boolean isPointMode) {
         Set<String> vars = new HashSet<>();
         Matcher m = VAR_PATTERN.matcher(expr);
         while (m.find()) {
             String w = m.group();
             if (isPointMode) {
-                // In point mode (a,b), everything is a parameter (even x, y, t)
-                // except known math functions
                 if (!KNOWN_FUNCS.contains(w) || w.equals("x") || w.equals("y")) {
-                    // Check if it's strictly a math function name
-                    boolean isMath = false;
-                    for(String f : KNOWN_FUNCS) {
-                        if(f.equals(w) && !f.equals("x") && !f.equals("y")) {
-                            isMath = true; break;
-                        }
-                    }
-                    if(!isMath) vars.add(w);
+                    boolean isMath = KNOWN_FUNCS.contains(w) && !w.equals("x") && !w.equals("y");
+                    if (!isMath) vars.add(w);
                 }
             } else {
-                // In equation mode, ignore x, y and functions
                 if (!KNOWN_FUNCS.contains(w)) {
                     vars.add(w);
                 }
@@ -171,37 +195,79 @@ public class PlotEquation {
         return vars;
     }
 
-    // --- Helper: Normalize text ---
     private String normalize(String s) {
-        return s.toLowerCase().replaceAll("\\s+", "");
+        s = s.toLowerCase().replaceAll("\\s+", "");
+
+        s = s.replace("asin^-1", "F_ASIN");
+        s = s.replace("sin^-1", "F_ASIN");
+        s = s.replace("acos^-1", "F_ACOS");
+        s = s.replace("cos^-1", "F_ACOS");
+        s = s.replace("atan^-1", "F_ATAN");
+        s = s.replace("tan^-1", "F_ATAN");
+        s = s.replace("sinh", "F_SINH");
+        s = s.replace("cosh", "F_COSH");
+        s = s.replace("tanh", "F_TANH");
+        s = s.replace("sin", "F_SIN");
+        s = s.replace("cos", "F_COS");
+        s = s.replace("tan", "F_TAN");
+        s = s.replace("sqrt", "F_SQRT");
+        s = s.replace("cbrt", "F_CBRT");
+        s = s.replace("abs", "F_ABS");
+        s = s.replace("exp", "F_EXP");
+        s = s.replace("log10", "F_LOGTEN");
+        s = s.replace("log", "F_LOGTEN");
+        s = s.replace("ln", "F_LN");
+        s = s.replace("pi", "F_PI");
+
+        s = s.replaceAll("(F_[A-Z]+)([a-z0-9]+)", "$1($2)");
+
+        s = s.replaceAll("(\\d)([a-z])", "$1*$2");
+        while (s.matches(".*[a-z]{2}.*")) {
+            s = s.replaceAll("([a-z])([a-z])", "$1*$2");
+        }
+        s = s.replaceAll("([a-z])(\\d)", "$1*$2");
+        s = s.replaceAll("(\\d)(F_[A-Z]+)", "$1*$2");
+        s = s.replaceAll("([a-z])(F_[A-Z]+)", "$1*$2");
+        s = s.replaceAll("\\)([a-z0-9]|F_[A-Z]+)", ")*$1");
+        s = s.replaceAll("([a-z0-9])\\(", "$1*(");
+        s = s.replaceAll("\\)\\(", ")*(");
+
+        s = s.replace("F_ASIN", "asin");
+        s = s.replace("F_ACOS", "acos");
+        s = s.replace("F_ATAN", "atan");
+        s = s.replace("F_SINH", "sinh");
+        s = s.replace("F_COSH", "cosh");
+        s = s.replace("F_TANH", "tanh");
+        s = s.replace("F_SIN", "sin");
+        s = s.replace("F_COS", "cos");
+        s = s.replace("F_TAN", "tan");
+        s = s.replace("F_SQRT", "sqrt");
+        s = s.replace("F_CBRT", "cbrt");
+        s = s.replace("F_ABS", "abs");
+        s = s.replace("F_EXP", "exp");
+        s = s.replace("F_LOGTEN", "log10");
+        s = s.replace("F_LN", "log");
+        s = s.replace("F_PI", "pi");
+
+        return s;
     }
 
-    // --- Evaluation ---
-
-    // Get dynamic Point X
     public double getPointX() {
         if (!isPoint || pointXExpr == null) return Double.NaN;
-        for (Map.Entry<String, Double> e : params.entrySet()) {
-            pointXExpr.setVariable(e.getKey(), e.getValue());
-        }
+        for (Map.Entry<String, Double> e : params.entrySet()) pointXExpr.setVariable(e.getKey(), e.getValue());
         try { return pointXExpr.evaluate(); } catch (Exception e) { return Double.NaN; }
     }
 
-    // Get dynamic Point Y
     public double getPointY() {
         if (!isPoint || pointYExpr == null) return Double.NaN;
-        for (Map.Entry<String, Double> e : params.entrySet()) {
-            pointYExpr.setVariable(e.getKey(), e.getValue());
-        }
+        for (Map.Entry<String, Double> e : params.entrySet()) pointYExpr.setVariable(e.getKey(), e.getValue());
         try { return pointYExpr.evaluate(); } catch (Exception e) { return Double.NaN; }
     }
 
     public double evalExplicit(double x) {
         if (explicitExpr == null) return Double.NaN;
         explicitExpr.setVariable("x", x);
-        for (Map.Entry<String, Double> e : params.entrySet()) {
-            explicitExpr.setVariable(e.getKey(), e.getValue());
-        }
+        for (Map.Entry<String, Double> e : params.entrySet()) explicitExpr.setVariable(e.getKey(), e.getValue());
         try { return explicitExpr.evaluate(); } catch (Exception e) { return Double.NaN; }
     }
 
@@ -209,38 +275,21 @@ public class PlotEquation {
         if (implicitExpr == null) return Double.NaN;
         implicitExpr.setVariable("x", x);
         implicitExpr.setVariable("y", y);
-        for (Map.Entry<String, Double> e : params.entrySet()) {
-            implicitExpr.setVariable(e.getKey(), e.getValue());
-        }
+        for (Map.Entry<String, Double> e : params.entrySet()) implicitExpr.setVariable(e.getKey(), e.getValue());
         try { return implicitExpr.evaluate(); } catch (Exception e) { return Double.NaN; }
     }
 
-    // Getters & Setters
     public String getRawText() { return rawText; }
     public void setRawText(String t) { this.rawText = t; rebuild(); }
-
     public Color getColor() { return color; }
     public void setColor(Color c) { this.color = c; }
-
     public boolean isVisible() { return visible; }
     public void setVisible(boolean v) { this.visible = v; }
-
     public boolean isImplicit() { return implicit; }
-
     public boolean isPoint() { return isPoint; }
-
     public boolean isLabelVisible() { return labelVisible; }
     public void setLabelVisible(boolean labelVisible) { this.labelVisible = labelVisible; }
-
     public List<String> getParamNames() { return paramNames; }
     public void setParam(String name, double val) { params.put(name, val); }
     public double getParam(String name, double def) { return params.getOrDefault(name, def); }
 }
-
-
-
-
-
-
-
-

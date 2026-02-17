@@ -222,7 +222,7 @@ public class GraphCanvas extends Canvas {
             if (eq.isPoint()) {
                 plotPoint(g, eq);
             } else if (!eq.isImplicit()) {
-                plotExplicit(g, eq, halfWUnits);
+                plotExplicit(g, eq,halfWUnits,halfHUnits);
             } else {
                 plotImplicitSmooth(g, eq, halfWUnits, halfHUnits);
             }
@@ -273,44 +273,79 @@ public class GraphCanvas extends Canvas {
     }
 
     // ---------- Explicit plot ----------
-    private void plotExplicit(GraphicsContext g, PlotEquation eq, double halfWUnits) {
+    private void plotExplicit(GraphicsContext g, PlotEquation eq, double halfWUnits, double halfHUnits) {
+
         double xMinPlot = xCenter - halfWUnits;
         double xMaxPlot = xCenter + halfWUnits;
+
+        // visible Y range in world units
+        double yMinPlot = yCenter - halfHUnits;
+        double yMaxPlot = yCenter + halfHUnits;
+
         double step = 1.0 / unitPx;
         if (fastRenderMode) step *= 2.0;
 
-        boolean started = false;
-        double prevY = 0;
+        boolean penDown = false;
 
-        g.beginPath();
         for (double x = xMinPlot; x <= xMaxPlot; x += step) {
+
             double y = eq.evalExplicit(x);
+
+            // ---- break on NaN/Infinity (domain errors, discontinuity) ----
             if (bad(y)) {
-                if (started) {
+                if (penDown) {
                     g.stroke();
-                    started = false;
+                    penDown = false;
                 }
                 continue;
             }
-            if (!started) {
-                g.beginPath();
-                g.moveTo(wxToPx(x), wyToPy(y));
-                started = true;
-            } else {
-                double py = wyToPy(y);
-                double prevPy = wyToPy(prevY);
-                if (Math.abs(py - prevPy) > getHeight()) {
-                    g.stroke();
+
+            // ---- clip to top/bottom border then BREAK (Desmos feel) ----
+            if (y < yMinPlot) {
+                y = yMinPlot;
+
+                if (!penDown) {
                     g.beginPath();
                     g.moveTo(wxToPx(x), wyToPy(y));
+                    penDown = true;
                 } else {
                     g.lineTo(wxToPx(x), wyToPy(y));
                 }
+
+                g.stroke();     // draw till border
+                penDown = false; // then break segment
+                continue;
             }
-            prevY = y;
+
+            if (y > yMaxPlot) {
+                y = yMaxPlot;
+
+                if (!penDown) {
+                    g.beginPath();
+                    g.moveTo(wxToPx(x), wyToPy(y));
+                    penDown = true;
+                } else {
+                    g.lineTo(wxToPx(x), wyToPy(y));
+                }
+
+                g.stroke();
+                penDown = false;
+                continue;
+            }
+
+            // ---- normal visible line ----
+            if (!penDown) {
+                g.beginPath();
+                g.moveTo(wxToPx(x), wyToPy(y));
+                penDown = true;
+            } else {
+                g.lineTo(wxToPx(x), wyToPy(y));
+            }
         }
-        if (started) g.stroke();
+
+        if (penDown) g.stroke();
     }
+
 
     // ---------- Implicit plot ----------
     private void plotImplicitSmooth(GraphicsContext g, PlotEquation eq, double halfWUnits, double halfHUnits) {
