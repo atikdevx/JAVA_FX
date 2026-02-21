@@ -31,7 +31,7 @@ public class HomeView extends StackPane {
 
         setBackground(new Background(bg));
 
-        // ✅ Only Start button (remove manual title/subtitle/extra texts)
+        //Only Start button (remove manual title/subtitle/extra texts)
         Button startBtn = new Button("Start Plotting");
         startBtn.setStyle(
                 "-fx-font-size: 16px;" +

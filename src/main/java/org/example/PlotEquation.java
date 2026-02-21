@@ -40,10 +40,6 @@ public class PlotEquation {
             "sqrt", "cbrt", "abs", "ceil", "floor", "exp", "log", "log10", "log2",
             "signum", "x", "y", "pi", "e"
     ));
-
-    // =========================================================================
-    // 🔥 ADVANCED ASYMPTOTE HACKS: JavaFX-Safe Infinity
-    // =========================================================================
     private static final Function LOG10_FUNC = new Function("log10", 1) {
         @Override
         public double apply(double... args) {
@@ -119,7 +115,7 @@ public class PlotEquation {
             paramNames.add(p);
         }
 
-        // 🔥 SMART EXPLICIT DETECTION 🔥
+        // SMART EXPLICIT DETECTION
         if (norm.contains("=")) {
             String[] parts = norm.split("=", 2);
             if (parts[0].equals("y") && !parts[1].contains("y")) {

@@ -6,7 +6,7 @@ import java.util.regex.Pattern;
 public final class EquationNormalizer {
     private EquationNormalizer() {}
 
-    // sin^-1(x) / sin^(-1)(x) -> asin(x) (optional; তুমি asin দিয়েই করছো)
+    // sin^-1(x) / sin^(-1)(x) -> asin(x)
     private static final Pattern INV_TRIG =
             Pattern.compile("(?i)\\b(sin|cos|tan)\\s*\\^\\s*\\(?\\s*-\\s*1\\s*\\)?\\s*\\(");
 
