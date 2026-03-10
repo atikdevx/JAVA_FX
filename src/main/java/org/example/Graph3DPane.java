@@ -1,13 +1,7 @@
 package com.equationplotter.ui;
 
 import javafx.geometry.Point3D;
-import javafx.scene.AmbientLight;
-import javafx.scene.Group;
-import javafx.scene.Node;
-import javafx.scene.PerspectiveCamera;
-import javafx.scene.PointLight;
-import javafx.scene.SceneAntialiasing;
-import javafx.scene.SubScene;
+import javafx.scene.*;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.StackPane;
@@ -15,6 +9,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
 import javafx.scene.transform.Rotate;
+import javafx.scene.transform.Translate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,12 +19,16 @@ public class Graph3DPane extends StackPane {
     private final Group root3D = new Group();
     private final Group world = new Group();
     private final Group graphGroup = new Group();
+    private final Group boxGroup = new Group();
+    private final Group gridGroup = new Group();
+    private final Group axesGroup = new Group();
 
     private final PerspectiveCamera camera = new PerspectiveCamera(true);
     private final SubScene subScene;
 
-    private final Rotate rotateX = new Rotate(-28, Rotate.X_AXIS);
-    private final Rotate rotateY = new Rotate(-35, Rotate.Y_AXIS);
+    private final Rotate rotateX = new Rotate(-22, Rotate.X_AXIS);
+    private final Rotate rotateY = new Rotate(-30, Rotate.Y_AXIS);
+    private final Translate worldTranslate = new Translate(0, 0, 0);
 
     private double anchorX;
     private double anchorY;
@@ -39,19 +38,30 @@ public class Graph3DPane extends StackPane {
     private final List<Plot3DDefinition> plots = new ArrayList<>();
 
     public Graph3DPane() {
-        setStyle("-fx-background-color: white;");
+        setStyle("-fx-background-color: #f7f7f7;");
 
-        buildWorld();
+        world.getTransforms().addAll(rotateX, rotateY, worldTranslate);
+
+        buildGrid();
+        buildAxes();
+        buildBoundingBox();
         buildLights();
 
-        subScene = new SubScene(root3D, 1152, 945, true, SceneAntialiasing.BALANCED);
-        subScene.setFill(Color.WHITE);
-        subScene.setCamera(camera);
+        graphGroup.setDepthTest(DepthTest.ENABLE);
+        world.setDepthTest(DepthTest.ENABLE);
+
+        world.getChildren().addAll(boxGroup, gridGroup, axesGroup, graphGroup);
+        root3D.getChildren().add(world);
 
         camera.setNearClip(0.1);
-        camera.setFarClip(20000);
-        camera.setTranslateZ(-1050);
-        camera.setFieldOfView(32);
+        camera.setFarClip(30000);
+        camera.setTranslateZ(-1100);
+        camera.setFieldOfView(28);
+
+        subScene = new SubScene(root3D, 1152, 945, true, SceneAntialiasing.BALANCED);
+        subScene.setFill(Color.web("#f7f7f7"));
+        subScene.setCamera(camera);
+        subScene.setManaged(false);
 
         getChildren().add(subScene);
 
@@ -61,80 +71,132 @@ public class Graph3DPane extends StackPane {
         enableMouseControls();
     }
 
-    private void buildWorld() {
-        world.getTransforms().addAll(rotateX, rotateY);
-
-        Group grid = createFloorGrid(16, 40);
-        Group axes = createAxes();
-
-        world.getChildren().addAll(grid, axes, graphGroup);
-        root3D.getChildren().add(world);
-    }
-
     private void buildLights() {
-        AmbientLight ambient = new AmbientLight(Color.color(1, 1, 1, 0.92));
+        AmbientLight ambient = new AmbientLight(Color.color(1, 1, 1, 0.95));
 
-        PointLight light1 = new PointLight(Color.WHITE);
-        light1.setTranslateX(-600);
-        light1.setTranslateY(-500);
-        light1.setTranslateZ(-900);
+        PointLight key = new PointLight(Color.WHITE);
+        key.setTranslateX(-500);
+        key.setTranslateY(-450);
+        key.setTranslateZ(-900);
 
-        PointLight light2 = new PointLight(Color.WHITE);
-        light2.setTranslateX(500);
-        light2.setTranslateY(-250);
-        light2.setTranslateZ(-500);
+        PointLight fill = new PointLight(Color.WHITE);
+        fill.setTranslateX(550);
+        fill.setTranslateY(-180);
+        fill.setTranslateZ(-450);
 
-        root3D.getChildren().addAll(ambient, light1, light2);
+        PointLight rim = new PointLight(Color.WHITE);
+        rim.setTranslateX(0);
+        rim.setTranslateY(350);
+        rim.setTranslateZ(-250);
+
+        root3D.getChildren().addAll(ambient, key, fill, rim);
     }
 
-    private Group createFloorGrid(int halfCount, double gap) {
-        Group grid = new Group();
+    private void buildGrid() {
+        gridGroup.getChildren().clear();
 
-        PhongMaterial minorMat = new PhongMaterial(Color.web("#e9e9e9"));
-        PhongMaterial majorMat = new PhongMaterial(Color.web("#d0d0d0"));
+        double size = 640;
+        double step = 40;
 
-        double full = halfCount * gap;
+        PhongMaterial minor = new PhongMaterial(Color.web("#dddddd"));
+        PhongMaterial major = new PhongMaterial(Color.web("#c8c8c8"));
 
-        for (int i = -halfCount; i <= halfCount; i++) {
-            boolean major = (i % 5 == 0);
+        for (double i = -size; i <= size; i += step) {
+            boolean isMajor = Math.round(i / step) % 5 == 0;
 
-            Box lineX = new Box(full * 2, 0.4, 0.4);
+            Box lineX = new Box(size * 2, 0.22, 0.22);
             lineX.setTranslateX(0);
             lineX.setTranslateY(0);
-            lineX.setTranslateZ(i * gap);
-            lineX.setMaterial(major ? majorMat : minorMat);
+            lineX.setTranslateZ(i);
+            lineX.setMaterial(isMajor ? major : minor);
 
-            Box lineZ = new Box(0.4, 0.4, full * 2);
-            lineZ.setTranslateX(i * gap);
+            Box lineZ = new Box(0.22, 0.22, size * 2);
+            lineZ.setTranslateX(i);
             lineZ.setTranslateY(0);
             lineZ.setTranslateZ(0);
-            lineZ.setMaterial(major ? majorMat : minorMat);
+            lineZ.setMaterial(isMajor ? major : minor);
 
-            grid.getChildren().addAll(lineX, lineZ);
+            gridGroup.getChildren().addAll(lineX, lineZ);
         }
-
-        return grid;
     }
 
-    private Group createAxes() {
-        Group axes = new Group();
+    private void buildAxes() {
+        axesGroup.getChildren().clear();
 
-        PhongMaterial xMat = new PhongMaterial(Color.web("#222222"));
-        PhongMaterial yMat = new PhongMaterial(Color.web("#222222"));
-        PhongMaterial zMat = new PhongMaterial(Color.web("#222222"));
+        PhongMaterial axisMat = new PhongMaterial(Color.web("#8f8f8f"));
 
-        Box xAxis = new Box(1400, 1.8, 1.8);
-        xAxis.setMaterial(xMat);
+        Box xAxis = new Box(820, 2.0, 2.0);
+        xAxis.setMaterial(axisMat);
 
-        Box yAxis = new Box(1.8, 700, 1.8);
-        yAxis.setTranslateY(-350);
-        yAxis.setMaterial(yMat);
+        Box yAxis = new Box(2.0, 820, 2.0);
+        yAxis.setTranslateY(-410);
+        yAxis.setMaterial(axisMat);
 
-        Box zAxis = new Box(1.8, 1.8, 1400);
-        zAxis.setMaterial(zMat);
+        Box zAxis = new Box(2.0, 2.0, 820);
+        zAxis.setMaterial(axisMat);
 
-        axes.getChildren().addAll(xAxis, yAxis, zAxis);
-        return axes;
+        axesGroup.getChildren().addAll(xAxis, yAxis, zAxis);
+    }
+
+    private void buildBoundingBox() {
+        boxGroup.getChildren().clear();
+
+        double halfW = 400;
+        double height = 820;
+        double halfD = 400;
+        double topY = -height / 2.0;
+        double bottomY = height / 2.0;
+
+        PhongMaterial boxMat = new PhongMaterial(Color.web("#bfbfbf"));
+
+        addEdge(-halfW, topY, -halfD, halfW, topY, -halfD, boxMat);
+        addEdge(halfW, topY, -halfD, halfW, topY, halfD, boxMat);
+        addEdge(halfW, topY, halfD, -halfW, topY, halfD, boxMat);
+        addEdge(-halfW, topY, halfD, -halfW, topY, -halfD, boxMat);
+
+        addEdge(-halfW, bottomY, -halfD, halfW, bottomY, -halfD, boxMat);
+        addEdge(halfW, bottomY, -halfD, halfW, bottomY, halfD, boxMat);
+        addEdge(halfW, bottomY, halfD, -halfW, bottomY, halfD, boxMat);
+        addEdge(-halfW, bottomY, halfD, -halfW, bottomY, -halfD, boxMat);
+
+        addEdge(-halfW, topY, -halfD, -halfW, bottomY, -halfD, boxMat);
+        addEdge(halfW, topY, -halfD, halfW, bottomY, -halfD, boxMat);
+        addEdge(halfW, topY, halfD, halfW, bottomY, halfD, boxMat);
+        addEdge(-halfW, topY, halfD, -halfW, bottomY, halfD, boxMat);
+    }
+
+    private void addEdge(double x1, double y1, double z1,
+                         double x2, double y2, double z2,
+                         PhongMaterial material) {
+        double dx = x2 - x1;
+        double dy = y2 - y1;
+        double dz = z2 - z1;
+        double length = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+        Box line = new Box(0.8, 0.8, length);
+        line.setMaterial(material);
+
+        double midX = (x1 + x2) / 2.0;
+        double midY = (y1 + y2) / 2.0;
+        double midZ = (z1 + z2) / 2.0;
+
+        line.setTranslateX(midX);
+        line.setTranslateY(midY);
+        line.setTranslateZ(midZ);
+
+        Point3D from = new Point3D(0, 0, 1);
+        Point3D to = new Point3D(dx, dy, dz).normalize();
+        Point3D axis = from.crossProduct(to);
+
+        double dot = from.dotProduct(to);
+        dot = Math.max(-1.0, Math.min(1.0, dot));
+        double angle = Math.toDegrees(Math.acos(dot));
+
+        if (axis.magnitude() > 1e-6 && !Double.isNaN(angle)) {
+            line.getTransforms().add(new Rotate(angle, axis));
+        }
+
+        boxGroup.getChildren().add(line);
     }
 
     private void enableMouseControls() {
@@ -146,16 +208,16 @@ public class Graph3DPane extends StackPane {
         });
 
         subScene.addEventHandler(MouseEvent.MOUSE_DRAGGED, e -> {
-            rotateX.setAngle(anchorAngleX - (e.getSceneY() - anchorY) * 0.35);
-            rotateY.setAngle(anchorAngleY + (e.getSceneX() - anchorX) * 0.35);
+            rotateX.setAngle(anchorAngleX - (e.getSceneY() - anchorY) * 0.28);
+            rotateY.setAngle(anchorAngleY + (e.getSceneX() - anchorX) * 0.28);
 
-            if (rotateX.getAngle() > 89) rotateX.setAngle(89);
-            if (rotateX.getAngle() < -89) rotateX.setAngle(-89);
+            if (rotateX.getAngle() > 88) rotateX.setAngle(88);
+            if (rotateX.getAngle() < -88) rotateX.setAngle(-88);
         });
 
         subScene.addEventHandler(ScrollEvent.SCROLL, e -> {
-            double next = camera.getTranslateZ() + e.getDeltaY() * 0.8;
-            if (next > -180) next = -180;
+            double next = camera.getTranslateZ() + e.getDeltaY() * 0.75;
+            if (next > -220) next = -220;
             if (next < -4500) next = -4500;
             camera.setTranslateZ(next);
         });
@@ -170,9 +232,12 @@ public class Graph3DPane extends StackPane {
     }
 
     public void resetCamera() {
-        rotateX.setAngle(-28);
-        rotateY.setAngle(-35);
-        camera.setTranslateZ(-1050);
+        rotateX.setAngle(-22);
+        rotateY.setAngle(-30);
+        camera.setTranslateZ(-1100);
+        worldTranslate.setX(0);
+        worldTranslate.setY(0);
+        worldTranslate.setZ(0);
     }
 
     private void rebuildGraph() {
@@ -183,6 +248,7 @@ public class Graph3DPane extends StackPane {
 
             Node node = def.buildNode();
             if (node != null) {
+                node.setDepthTest(DepthTest.ENABLE);
                 graphGroup.getChildren().add(node);
             }
         }

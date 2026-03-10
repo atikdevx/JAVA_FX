@@ -38,11 +38,11 @@ public class Draggable3DEquationPanel extends VBox {
         setSpacing(10);
         setPadding(new Insets(14));
         setStyle("""
-            -fx-background-color: rgba(255,255,255,0.93);
+            -fx-background-color: rgba(255,255,255,0.82);
             -fx-background-radius: 18;
-            -fx-border-color: rgba(255,255,255,0.18);
+            -fx-border-color: rgba(220,220,220,0.85);
             -fx-border-radius: 18;
-            -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.22), 24, 0.2, 0, 8);
+            -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.12), 24, 0.2, 0, 8);
         """);
 
         buildHeader();
@@ -53,19 +53,19 @@ public class Draggable3DEquationPanel extends VBox {
         addBtn.setStyle("""
             -fx-font-size: 14px;
             -fx-font-weight: bold;
-            -fx-background-color: linear-gradient(to right, #e8ecff, #dde7ff);
+            -fx-background-color: #dfe6f7;
             -fx-text-fill: #24314d;
             -fx-background-radius: 10;
             -fx-padding: 10 12;
             -fx-cursor: hand;
         """);
-        addBtn.setOnAction(e -> addRow("z=sin(sqrt(x*x+y*y))", Color.CORNFLOWERBLUE));
+        addBtn.setOnAction(e -> addRow("x^2+y^2", Color.HOTPINK));
 
         getChildren().addAll(header, hintBox, addBtn, rowsBox);
 
-        addRow("z=sin(sqrt(x*x+y*y))", Color.web("#6aa9ff"));
+        addRow("z=sin(sqrt(x*x+y*y))", Color.web("#ff4fa3"));
+        addRow("x^2+y^2+z^2=25", Color.web("#00bcd4")); // Sphere example!
         addRow("x=cos(t); y=sin(t); z=t/4", Color.web("#ff9800"));
-        addRow("(2,3,1)", Color.web("#ff4fa3"));
 
         pushUpdate();
     }
@@ -97,7 +97,7 @@ public class Draggable3DEquationPanel extends VBox {
             if (minimized) {
                 minBtn.setText("▸");
                 getChildren().setAll(header);
-                setPrefWidth(210);
+                setPrefWidth(220);
             } else {
                 minBtn.setText("▾");
                 getChildren().setAll(header, hintBox, addBtn, rowsBox);
@@ -121,12 +121,12 @@ public class Draggable3DEquationPanel extends VBox {
         VBox hints = new VBox(4);
         hints.setPadding(new Insets(10));
         hints.setBackground(new Background(
-                new BackgroundFill(Color.rgb(20, 30, 60, 0.06), new CornerRadii(10), Insets.EMPTY)
+                new BackgroundFill(Color.rgb(20, 30, 60, 0.05), new CornerRadii(10), Insets.EMPTY)
         ));
 
-        Label h1 = new Label("Surface: z = sin(sqrt(x*x+y*y))");
-        Label h2 = new Label("Curve: x=cos(t); y=sin(t); z=t/4");
-        Label h3 = new Label("Point: (2,3,1)");
+        Label h1 = new Label("Surface: z = sin(x) + cos(y)");
+        Label h2 = new Label("Implicit: x^2+y^2+z^2 = 25");
+        Label h3 = new Label("Curve: x=cos(t); y=sin(t); z=t");
 
         h1.setStyle("-fx-font-size: 12px; -fx-text-fill: #34415f;");
         h2.setStyle("-fx-font-size: 12px; -fx-text-fill: #34415f;");
@@ -148,7 +148,7 @@ public class Draggable3DEquationPanel extends VBox {
         TextArea input = new TextArea(text);
         input.setWrapText(true);
         input.setPrefRowCount(2);
-        input.setPromptText("z=f(x,y)  or  x=...; y=...; z=...  or  (x,y,z)");
+        input.setPromptText("z=f(x,y)  or  f(x,y,z)=0  or  x=...; y=...; z=...");
         input.setStyle("""
             -fx-background-radius: 10;
             -fx-border-radius: 10;
@@ -156,19 +156,24 @@ public class Draggable3DEquationPanel extends VBox {
         """);
         HBox.setHgrow(input, Priority.ALWAYS);
 
-        Button eye = new Button("👁");
+        Button eye = new Button("Hide");
         eye.setTooltip(new Tooltip("Show / Hide graph"));
+        eye.setMinWidth(52);
         eye.setStyle("""
             -fx-background-color: #eef2ff;
+            -fx-text-fill: #2f3b59;
+            -fx-font-weight: bold;
             -fx-background-radius: 8;
             -fx-cursor: hand;
         """);
 
-        Button del = new Button("✕");
+        Button del = new Button("X");
         del.setTooltip(new Tooltip("Delete"));
+        del.setMinWidth(38);
         del.setStyle("""
             -fx-background-color: #fff1f1;
             -fx-text-fill: #c93c3c;
+            -fx-font-weight: bold;
             -fx-background-radius: 8;
             -fx-cursor: hand;
         """);
@@ -192,8 +197,8 @@ public class Draggable3DEquationPanel extends VBox {
 
         eye.setOnAction(e -> {
             def.setVisible(!def.isVisible());
-            eye.setText(def.isVisible() ? "👁" : "🚫");
-            eye.setOpacity(def.isVisible() ? 1.0 : 0.65);
+            eye.setText(def.isVisible() ? "Hide" : "Show");
+            eye.setOpacity(def.isVisible() ? 1.0 : 0.75);
             pushUpdate();
         });
 

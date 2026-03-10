@@ -14,7 +14,7 @@ public class Workspace3DView extends StackPane {
         Button backBtn = new Button("← Back");
         backBtn.setStyle("""
             -fx-font-size: 14px;
-            -fx-background-color: linear-gradient(to right, #8b2cff, #c22cff);
+            -fx-background-color: linear-gradient(to right, #9d00ff, #d329ff);
             -fx-text-fill: white;
             -fx-font-weight: bold;
             -fx-padding: 10 18;
@@ -26,11 +26,13 @@ public class Workspace3DView extends StackPane {
         Button resetBtn = new Button("Reset Camera");
         resetBtn.setStyle("""
             -fx-font-size: 14px;
-            -fx-background-color: rgba(255,255,255,0.95);
-            -fx-text-fill: #1d2433;
+            -fx-background-color: rgba(255,255,255,0.96);
+            -fx-text-fill: #333333;
             -fx-font-weight: bold;
             -fx-padding: 10 18;
             -fx-background-radius: 10;
+            -fx-border-color: #dddddd;
+            -fx-border-radius: 10;
             -fx-cursor: hand;
         """);
         resetBtn.setOnAction(e -> graph3DPane.resetCamera());
