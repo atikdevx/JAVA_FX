@@ -1,3 +1,16 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
 package com.equationplotter.ui;
 
 import javafx.geometry.Point3D;
@@ -13,6 +26,8 @@ import javafx.scene.transform.Translate;
 
 import java.util.ArrayList;
 import java.util.List;
+
+
 
 public class Graph3DPane extends StackPane {
 
@@ -92,25 +107,31 @@ public class Graph3DPane extends StackPane {
         root3D.getChildren().addAll(ambient, key, fill, rim);
     }
 
+
+
+
+
+
     private void buildGrid() {
         gridGroup.getChildren().clear();
 
         double size = 640;
         double step = 40;
 
-        PhongMaterial minor = new PhongMaterial(Color.web("#dddddd"));
-        PhongMaterial major = new PhongMaterial(Color.web("#c8c8c8"));
+        // Darker grid colors (visible on white)
+        PhongMaterial minor = new PhongMaterial(Color.web("#555555"));
+        PhongMaterial major = new PhongMaterial(Color.web("#2f2f2f"));
 
         for (double i = -size; i <= size; i += step) {
             boolean isMajor = Math.round(i / step) % 5 == 0;
 
-            Box lineX = new Box(size * 2, 0.22, 0.22);
+            Box lineX = new Box(size * 2, 0.6, 0.6);   // slightly thicker
             lineX.setTranslateX(0);
             lineX.setTranslateY(0);
             lineX.setTranslateZ(i);
             lineX.setMaterial(isMajor ? major : minor);
 
-            Box lineZ = new Box(0.22, 0.22, size * 2);
+            Box lineZ = new Box(0.6, 0.6, size * 2);
             lineZ.setTranslateX(i);
             lineZ.setTranslateY(0);
             lineZ.setTranslateZ(0);
@@ -120,23 +141,73 @@ public class Graph3DPane extends StackPane {
         }
     }
 
+//    private void buildGrid() {
+//        gridGroup.getChildren().clear();
+//
+//        double size = 640;
+//        double step = 40;
+//
+//        PhongMaterial minor = new PhongMaterial(Color.web("#dddddd"));
+//        PhongMaterial major = new PhongMaterial(Color.web("#c8c8c8"));
+//
+//        for (double i = -size; i <= size; i += step) {
+//            boolean isMajor = Math.round(i / step) % 5 == 0;
+//
+//            Box lineX = new Box(size * 2, 0.22, 0.22);
+//            lineX.setTranslateX(0);
+//            lineX.setTranslateY(0);
+//            lineX.setTranslateZ(i);
+//            lineX.setMaterial(isMajor ? major : minor);
+//
+//            Box lineZ = new Box(0.22, 0.22, size * 2);
+//            lineZ.setTranslateX(i);
+//            lineZ.setTranslateY(0);
+//            lineZ.setTranslateZ(0);
+//            lineZ.setMaterial(isMajor ? major : minor);
+//
+//            gridGroup.getChildren().addAll(lineX, lineZ);
+//        }
+//    }
+
+
+
+
     private void buildAxes() {
         axesGroup.getChildren().clear();
 
-        PhongMaterial axisMat = new PhongMaterial(Color.web("#8f8f8f"));
+        // Dark axis color
+        PhongMaterial axisMat = new PhongMaterial(Color.web("#111111"));
 
-        Box xAxis = new Box(820, 2.0, 2.0);
+        Box xAxis = new Box(820, 3.0, 3.0);
         xAxis.setMaterial(axisMat);
 
-        Box yAxis = new Box(2.0, 820, 2.0);
+        Box yAxis = new Box(3.0, 820, 3.0);
         yAxis.setTranslateY(-410);
         yAxis.setMaterial(axisMat);
 
-        Box zAxis = new Box(2.0, 2.0, 820);
+        Box zAxis = new Box(3.0, 3.0, 820);
         zAxis.setMaterial(axisMat);
 
         axesGroup.getChildren().addAll(xAxis, yAxis, zAxis);
     }
+
+//    private void buildAxes() {
+//        axesGroup.getChildren().clear();
+//
+//        PhongMaterial axisMat = new PhongMaterial(Color.web("#8f8f8f"));
+//
+//        Box xAxis = new Box(820, 2.0, 2.0);
+//        xAxis.setMaterial(axisMat);
+//
+//        Box yAxis = new Box(2.0, 820, 2.0);
+//        yAxis.setTranslateY(-410);
+//        yAxis.setMaterial(axisMat);
+//
+//        Box zAxis = new Box(2.0, 2.0, 820);
+//        zAxis.setMaterial(axisMat);
+//
+//        axesGroup.getChildren().addAll(xAxis, yAxis, zAxis);
+//    }
 
     private void buildBoundingBox() {
         boxGroup.getChildren().clear();
