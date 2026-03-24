@@ -72,8 +72,6 @@ public class DraggableEquationPanel extends VBox {
         minBtn.setOnAction(e -> toggleMinimize());
 
         getChildren().addAll(header, addBtn, rowsBox);
-
-        addRow("y=sin(x)", Color.BLUE);
         pushUpdate();
     }
 

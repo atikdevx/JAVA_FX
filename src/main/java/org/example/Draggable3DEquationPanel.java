@@ -63,10 +63,6 @@ public class Draggable3DEquationPanel extends VBox {
 
         getChildren().addAll(header, hintBox, addBtn, rowsBox);
 
-        addRow("z=sin(sqrt(x*x+y*y))", Color.web("#ff4fa3"));
-        addRow("x^2+y^2+z^2=25", Color.web("#00bcd4")); // Sphere example!
-        addRow("x=cos(t); y=sin(t); z=t/4", Color.web("#ff9800"));
-
         pushUpdate();
     }
 

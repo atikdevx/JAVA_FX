@@ -1,18 +1,13 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
 package com.equationplotter.ui;
-
+import javafx.scene.shape.CullFace;
+import javafx.scene.shape.MeshView;
+import javafx.scene.shape.TriangleMesh;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
+import javafx.scene.text.Text;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 import javafx.geometry.Point3D;
 import javafx.scene.*;
 import javafx.scene.input.MouseEvent;
@@ -27,8 +22,6 @@ import javafx.scene.transform.Translate;
 import java.util.ArrayList;
 import java.util.List;
 
-
-
 public class Graph3DPane extends StackPane {
 
     private final Group root3D = new Group();
@@ -41,18 +34,52 @@ public class Graph3DPane extends StackPane {
     private final PerspectiveCamera camera = new PerspectiveCamera(true);
     private final SubScene subScene;
 
-    private final Rotate rotateX = new Rotate(-22, Rotate.X_AXIS);
-    private final Rotate rotateY = new Rotate(-30, Rotate.Y_AXIS);
+    private final Rotate rotateX = new Rotate(35, Rotate.X_AXIS);
+    private final Rotate rotateY = new Rotate(45, Rotate.Y_AXIS);
     private final Translate worldTranslate = new Translate(0, 0, 0);
 
     private double anchorX;
     private double anchorY;
     private double anchorAngleX;
     private double anchorAngleY;
+    private MeshView createArrowHead(double sizeDouble, double lengthDouble, PhongMaterial mat) {
+        // Cast the doubles to floats for the TriangleMesh
+        float size = (float) sizeDouble;
+        float length = (float) lengthDouble;
 
+        TriangleMesh mesh = new TriangleMesh();
+
+        // Create the 5 points of a pyramid (using floats)
+        mesh.getPoints().addAll(
+                0f, 0f, length,         // 0: tip
+                -size, -size, 0f,       // 1: base corner
+                size, -size, 0f,       // 2: base corner
+                size,  size, 0f,       // 3: base corner
+                -size,  size, 0f        // 4: base corner
+        );
+
+        // Dummy texture coordinates
+        mesh.getTexCoords().addAll(0f, 0f);
+
+        // Connect the points to form faces
+        mesh.getFaces().addAll(
+                0,0, 2,0, 1,0,
+                0,0, 3,0, 2,0,
+                0,0, 4,0, 3,0,
+                0,0, 1,0, 4,0,
+                1,0, 2,0, 3,0,
+                1,0, 3,0, 4,0
+        );
+
+        MeshView view = new MeshView(mesh);
+        view.setMaterial(mat);
+        view.setCullFace(CullFace.NONE);
+        return view;
+    }
     private final List<Plot3DDefinition> plots = new ArrayList<>();
 
     public Graph3DPane() {
+
         setStyle("-fx-background-color: #f7f7f7;");
 
         world.getTransforms().addAll(rotateX, rotateY, worldTranslate);
@@ -70,7 +97,7 @@ public class Graph3DPane extends StackPane {
 
         camera.setNearClip(0.1);
         camera.setFarClip(30000);
-        camera.setTranslateZ(-1100);
+        camera.setTranslateZ(-2000);
         camera.setFieldOfView(28);
 
         subScene = new SubScene(root3D, 1152, 945, true, SceneAntialiasing.BALANCED);
@@ -80,156 +107,110 @@ public class Graph3DPane extends StackPane {
 
         getChildren().add(subScene);
 
-        widthProperty().addListener((obs, oldVal, newVal) -> subScene.setWidth(newVal.doubleValue()));
-        heightProperty().addListener((obs, oldVal, newVal) -> subScene.setHeight(newVal.doubleValue()));
+        widthProperty().addListener((obs, o, n) -> subScene.setWidth(n.doubleValue()));
+        heightProperty().addListener((obs, o, n) -> subScene.setHeight(n.doubleValue()));
 
         enableMouseControls();
     }
 
     private void buildLights() {
-        AmbientLight ambient = new AmbientLight(Color.color(1, 1, 1, 0.95));
-
-        PointLight key = new PointLight(Color.WHITE);
-        key.setTranslateX(-500);
-        key.setTranslateY(-450);
-        key.setTranslateZ(-900);
-
-        PointLight fill = new PointLight(Color.WHITE);
-        fill.setTranslateX(550);
-        fill.setTranslateY(-180);
-        fill.setTranslateZ(-450);
-
-        PointLight rim = new PointLight(Color.WHITE);
-        rim.setTranslateX(0);
-        rim.setTranslateY(350);
-        rim.setTranslateZ(-250);
-
-        root3D.getChildren().addAll(ambient, key, fill, rim);
+        AmbientLight ambient = new AmbientLight(Color.rgb(130, 130, 130));
+        PointLight pointLight = new PointLight(Color.WHITE);
+        pointLight.setTranslateX(1500);
+        pointLight.setTranslateY(-2000);
+        pointLight.setTranslateZ(-3000);
+        root3D.getChildren().addAll(ambient, pointLight);
     }
-
-
-
-
-
 
     private void buildGrid() {
         gridGroup.getChildren().clear();
-
         double size = 640;
         double step = 40;
-
-        // Darker grid colors (visible on white)
         PhongMaterial minor = new PhongMaterial(Color.web("#555555"));
         PhongMaterial major = new PhongMaterial(Color.web("#2f2f2f"));
-
         for (double i = -size; i <= size; i += step) {
             boolean isMajor = Math.round(i / step) % 5 == 0;
-
-            Box lineX = new Box(size * 2, 0.6, 0.6);   // slightly thicker
-            lineX.setTranslateX(0);
-            lineX.setTranslateY(0);
+            Box lineX = new Box(size * 2, 0.6, 0.6);
             lineX.setTranslateZ(i);
             lineX.setMaterial(isMajor ? major : minor);
-
             Box lineZ = new Box(0.6, 0.6, size * 2);
             lineZ.setTranslateX(i);
-            lineZ.setTranslateY(0);
-            lineZ.setTranslateZ(0);
             lineZ.setMaterial(isMajor ? major : minor);
-
             gridGroup.getChildren().addAll(lineX, lineZ);
         }
     }
-
-//    private void buildGrid() {
-//        gridGroup.getChildren().clear();
-//
-//        double size = 640;
-//        double step = 40;
-//
-//        PhongMaterial minor = new PhongMaterial(Color.web("#dddddd"));
-//        PhongMaterial major = new PhongMaterial(Color.web("#c8c8c8"));
-//
-//        for (double i = -size; i <= size; i += step) {
-//            boolean isMajor = Math.round(i / step) % 5 == 0;
-//
-//            Box lineX = new Box(size * 2, 0.22, 0.22);
-//            lineX.setTranslateX(0);
-//            lineX.setTranslateY(0);
-//            lineX.setTranslateZ(i);
-//            lineX.setMaterial(isMajor ? major : minor);
-//
-//            Box lineZ = new Box(0.22, 0.22, size * 2);
-//            lineZ.setTranslateX(i);
-//            lineZ.setTranslateY(0);
-//            lineZ.setTranslateZ(0);
-//            lineZ.setMaterial(isMajor ? major : minor);
-//
-//            gridGroup.getChildren().addAll(lineX, lineZ);
-//        }
-//    }
-
-
-
-
     private void buildAxes() {
         axesGroup.getChildren().clear();
-
-        // Dark axis color
         PhongMaterial axisMat = new PhongMaterial(Color.web("#111111"));
 
-        Box xAxis = new Box(820, 3.0, 3.0);
+        // --- 1. Lines ---
+        Box xAxis = new Box(820, 3, 3);
         xAxis.setMaterial(axisMat);
 
-        Box yAxis = new Box(3.0, 820, 3.0);
+        Box yAxis = new Box(3, 820, 3);
         yAxis.setTranslateY(-410);
         yAxis.setMaterial(axisMat);
 
-        Box zAxis = new Box(3.0, 3.0, 820);
+        Box zAxis = new Box(3, 3, 820);
         zAxis.setMaterial(axisMat);
 
-        axesGroup.getChildren().addAll(xAxis, yAxis, zAxis);
-    }
+        // --- 2. 3D Arrowheads ---
+        // X Arrow (Rotate to point right)
+        MeshView xArrow = createArrowHead(8, 24, axisMat);
+        xArrow.setTranslateX(410);
+        xArrow.getTransforms().add(new Rotate(90, Rotate.Y_AXIS));
 
-//    private void buildAxes() {
-//        axesGroup.getChildren().clear();
-//
-//        PhongMaterial axisMat = new PhongMaterial(Color.web("#8f8f8f"));
-//
-//        Box xAxis = new Box(820, 2.0, 2.0);
-//        xAxis.setMaterial(axisMat);
-//
-//        Box yAxis = new Box(2.0, 820, 2.0);
-//        yAxis.setTranslateY(-410);
-//        yAxis.setMaterial(axisMat);
-//
-//        Box zAxis = new Box(2.0, 2.0, 820);
-//        zAxis.setMaterial(axisMat);
-//
-//        axesGroup.getChildren().addAll(xAxis, yAxis, zAxis);
-//    }
+        // Y Arrow (Rotate to point up)
+        MeshView yArrow = createArrowHead(8, 24, axisMat);
+        yArrow.setTranslateY(-820);
+        yArrow.getTransforms().add(new Rotate(90, Rotate.X_AXIS));
+
+        // Z Arrow (Points forward by default)
+        MeshView zArrow = createArrowHead(8, 24, axisMat);
+        zArrow.setTranslateZ(410);
+
+        // --- 3. Text Labels ---
+        Font labelFont = Font.font("Arial", FontWeight.BOLD, 24);
+
+        Text xLabel = new Text("X");
+        xLabel.setFont(labelFont);
+        xLabel.setTranslateX(445); // Pushed further out to clear the arrowhead
+        xLabel.setTranslateY(-10);
+
+        Text yLabel = new Text("Y");
+        yLabel.setFont(labelFont);
+        yLabel.setTranslateY(-850); // Pushed further out to clear the arrowhead
+        yLabel.setTranslateX(15);
+
+        Text zLabel = new Text("Z");
+        zLabel.setFont(labelFont);
+        zLabel.setTranslateZ(445); // Pushed further out to clear the arrowhead
+        zLabel.setTranslateY(-10);
+
+        // Add everything to the group
+        axesGroup.getChildren().addAll(
+                xAxis, yAxis, zAxis,
+                xArrow, yArrow, zArrow,
+                xLabel, yLabel, zLabel
+        );
+    }
 
     private void buildBoundingBox() {
         boxGroup.getChildren().clear();
-
         double halfW = 400;
         double height = 820;
         double halfD = 400;
         double topY = -height / 2.0;
         double bottomY = height / 2.0;
-
         PhongMaterial boxMat = new PhongMaterial(Color.web("#bfbfbf"));
-
         addEdge(-halfW, topY, -halfD, halfW, topY, -halfD, boxMat);
         addEdge(halfW, topY, -halfD, halfW, topY, halfD, boxMat);
         addEdge(halfW, topY, halfD, -halfW, topY, halfD, boxMat);
         addEdge(-halfW, topY, halfD, -halfW, topY, -halfD, boxMat);
-
         addEdge(-halfW, bottomY, -halfD, halfW, bottomY, -halfD, boxMat);
         addEdge(halfW, bottomY, -halfD, halfW, bottomY, halfD, boxMat);
         addEdge(halfW, bottomY, halfD, -halfW, bottomY, halfD, boxMat);
         addEdge(-halfW, bottomY, halfD, -halfW, bottomY, -halfD, boxMat);
-
         addEdge(-halfW, topY, -halfD, -halfW, bottomY, -halfD, boxMat);
         addEdge(halfW, topY, -halfD, halfW, bottomY, -halfD, boxMat);
         addEdge(halfW, topY, halfD, halfW, bottomY, halfD, boxMat);
@@ -238,35 +219,22 @@ public class Graph3DPane extends StackPane {
 
     private void addEdge(double x1, double y1, double z1,
                          double x2, double y2, double z2,
-                         PhongMaterial material) {
+                         PhongMaterial mat) {
         double dx = x2 - x1;
         double dy = y2 - y1;
         double dz = z2 - z1;
         double length = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
         Box line = new Box(0.8, 0.8, length);
-        line.setMaterial(material);
-
-        double midX = (x1 + x2) / 2.0;
-        double midY = (y1 + y2) / 2.0;
-        double midZ = (z1 + z2) / 2.0;
-
-        line.setTranslateX(midX);
-        line.setTranslateY(midY);
-        line.setTranslateZ(midZ);
-
+        line.setMaterial(mat);
+        line.setTranslateX((x1 + x2) / 2);
+        line.setTranslateY((y1 + y2) / 2);
+        line.setTranslateZ((z1 + z2) / 2);
         Point3D from = new Point3D(0, 0, 1);
         Point3D to = new Point3D(dx, dy, dz).normalize();
         Point3D axis = from.crossProduct(to);
-
-        double dot = from.dotProduct(to);
-        dot = Math.max(-1.0, Math.min(1.0, dot));
-        double angle = Math.toDegrees(Math.acos(dot));
-
-        if (axis.magnitude() > 1e-6 && !Double.isNaN(angle)) {
+        double angle = Math.toDegrees(Math.acos(from.dotProduct(to)));
+        if (axis.magnitude() > 1e-6)
             line.getTransforms().add(new Rotate(angle, axis));
-        }
-
         boxGroup.getChildren().add(line);
     }
 
@@ -277,15 +245,12 @@ public class Graph3DPane extends StackPane {
             anchorAngleX = rotateX.getAngle();
             anchorAngleY = rotateY.getAngle();
         });
-
         subScene.addEventHandler(MouseEvent.MOUSE_DRAGGED, e -> {
             rotateX.setAngle(anchorAngleX - (e.getSceneY() - anchorY) * 0.28);
             rotateY.setAngle(anchorAngleY + (e.getSceneX() - anchorX) * 0.28);
-
             if (rotateX.getAngle() > 88) rotateX.setAngle(88);
             if (rotateX.getAngle() < -88) rotateX.setAngle(-88);
         });
-
         subScene.addEventHandler(ScrollEvent.SCROLL, e -> {
             double next = camera.getTranslateZ() + e.getDeltaY() * 0.75;
             if (next > -220) next = -220;
@@ -296,16 +261,14 @@ public class Graph3DPane extends StackPane {
 
     public void setPlots(List<Plot3DDefinition> definitions) {
         plots.clear();
-        if (definitions != null) {
-            plots.addAll(definitions);
-        }
+        if (definitions != null) plots.addAll(definitions);
         rebuildGraph();
     }
 
     public void resetCamera() {
-        rotateX.setAngle(-22);
-        rotateY.setAngle(-30);
-        camera.setTranslateZ(-1100);
+        rotateX.setAngle(35);
+        rotateY.setAngle(45);
+        camera.setTranslateZ(-2000);
         worldTranslate.setX(0);
         worldTranslate.setY(0);
         worldTranslate.setZ(0);
@@ -313,10 +276,8 @@ public class Graph3DPane extends StackPane {
 
     private void rebuildGraph() {
         graphGroup.getChildren().clear();
-
         for (Plot3DDefinition def : plots) {
             if (def == null || !def.isVisible()) continue;
-
             Node node = def.buildNode();
             if (node != null) {
                 node.setDepthTest(DepthTest.ENABLE);
