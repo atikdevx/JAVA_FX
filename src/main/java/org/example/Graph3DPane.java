@@ -23,14 +23,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Graph3DPane extends StackPane {
-
     private final Group root3D = new Group();
     private final Group world = new Group();
     private final Group graphGroup = new Group();
     private final Group boxGroup = new Group();
     private final Group gridGroup = new Group();
     private final Group axesGroup = new Group();
-
+    private final Group axisLabelsGroup=new Group();
+    private double currentLabelStep=-1;
     private final PerspectiveCamera camera = new PerspectiveCamera(true);
     private final SubScene subScene;
 
@@ -111,6 +111,10 @@ public class Graph3DPane extends StackPane {
         heightProperty().addListener((obs, o, n) -> subScene.setHeight(n.doubleValue()));
 
         enableMouseControls();
+        updateAxisMarkings(Math.abs(camera.getTranslateZ()));
+        camera.translateZProperty().addListener((obs, oldVal, newVal) -> {
+            updateAxisMarkings(Math.abs(newVal.doubleValue()));
+        });
     }
 
     private void buildLights() {
@@ -191,8 +195,73 @@ public class Graph3DPane extends StackPane {
         axesGroup.getChildren().addAll(
                 xAxis, yAxis, zAxis,
                 xArrow, yArrow, zArrow,
-                xLabel, yLabel, zLabel
+                xLabel, yLabel, zLabel,
+                axisLabelsGroup
         );
+    }
+    private void updateAxisMarkings(double zDistance) {
+        // Your graph maps 1 Math Unit to 40 JavaFX Pixels (1 grid square)
+        final double SCALE = 40.0;
+
+        // 1. Determine tick spacing based on zoom
+        int step;
+        if (zDistance < 1000) step = 40;       // Every 40 pixels (1 math unit)
+        else if (zDistance < 2000) step = 80;  // Every 80 pixels (2 math units)
+        else if (zDistance < 3500) step = 200; // Every 200 pixels (5 math units)
+        else step = 400;                       // Every 400 pixels (10 math units)
+
+        if (step == currentLabelStep) return;
+        currentLabelStep = step;
+
+        axisLabelsGroup.getChildren().clear();
+        Font tickFont = Font.font("Arial", FontWeight.NORMAL, 14);
+
+        // 2. Generate X and Z labels
+        for (int i = -400; i <= 400; i += step) {
+            if (i == 0) continue; // Skip origin
+
+            // Calculate actual math coordinate and format it cleanly (drop .0 if whole number)
+            double mathValue = i / SCALE;
+            String labelText = (mathValue == (long) mathValue) ?
+                    String.valueOf((long) mathValue) :
+                    String.valueOf(mathValue);
+
+            // X-Axis
+            Text xText = new Text(labelText);
+            xText.setFont(tickFont);
+            xText.setFill(Color.DARKBLUE);
+            xText.setTranslateX(i);
+            xText.setTranslateY(15);
+            xText.setTranslateZ(0);
+
+            // Z-Axis
+            Text zText = new Text(labelText);
+            zText.setFont(tickFont);
+            zText.setFill(Color.DARKRED);
+            zText.setTranslateX(15);
+            zText.setTranslateY(15);
+            zText.setTranslateZ(i);
+
+            axisLabelsGroup.getChildren().addAll(xText, zText);
+        }
+
+        // 3. Generate Y labels (Vertical)
+        for (int i = -step; i >= -800; i -= step) {
+            // Calculate math coordinate
+            double mathValue = Math.abs(i) / SCALE;
+            String labelText = (mathValue == (long) mathValue) ?
+                    String.valueOf((long) mathValue) :
+                    String.valueOf(mathValue);
+
+            Text yText = new Text(labelText);
+            yText.setFont(tickFont);
+            yText.setFill(Color.DARKGREEN);
+            yText.setTranslateX(15);
+            yText.setTranslateY(i);
+            yText.setTranslateZ(0);
+
+            axisLabelsGroup.getChildren().add(yText);
+        }
     }
 
     private void buildBoundingBox() {
