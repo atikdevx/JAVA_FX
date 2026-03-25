@@ -174,7 +174,7 @@ public class HomeView extends StackPane {
         menuTitle.setTextFill(Color.rgb(255, 255, 255, 0.95));
         menuTitle.setEffect(new DropShadow(20, Color.rgb(255, 255, 255, 0.25)));
 
-        Button startBtn = createMenuButton("Start Plotting", true);
+        Button startBtn = createMenuButton("2D Graph", true);
         Button start3DBtn = createMenuButton("3D Graph", false);
         Button aboutBtn = createMenuButton("About", false);
         Button exitBtn = createMenuButton("Exit", false);

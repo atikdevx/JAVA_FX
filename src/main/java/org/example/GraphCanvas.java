@@ -18,13 +18,16 @@ public class GraphCanvas extends Canvas {
     // ---------- Equations ----------
     private final List<PlotEquation> equations = new ArrayList<>();
     private boolean fastRenderMode = false;
-
+    private boolean isDarkMode=false;
     public void setEquations(List<PlotEquation> eqs) {
         equations.clear();
         if (eqs != null) equations.addAll(eqs);
         draw();
     }
-
+    public void setDarkMode(boolean isDark){
+        this.isDarkMode=isDark;
+        draw();
+    }
     public void setEquationsFast(List<PlotEquation> eqs) {
         fastRenderMode = true;
         equations.clear();
@@ -152,8 +155,15 @@ public class GraphCanvas extends Canvas {
 
         GraphicsContext g = getGraphicsContext2D();
 
+        // --- THEME COLORS ---
+        Color bgColor = isDarkMode ? Color.web("#1e1e1e") : Color.WHITE;
+        Color minorGridColor = isDarkMode ? Color.web("#333333") : Color.web("#eeeeee");
+        Color majorGridColor = isDarkMode ? Color.web("#555555") : Color.web("#c9c9c9");
+        Color axisColor = isDarkMode ? Color.web("#aaaaaa") : Color.web("#666666");
+        Color textColor = isDarkMode ? Color.web("#dddddd") : Color.web("#444444");
+
         // 1. Clear & Background
-        g.setFill(Color.WHITE);
+        g.setFill(bgColor);
         g.fillRect(0, 0, w, h);
 
         g.setLineCap(StrokeLineCap.ROUND);
@@ -171,17 +181,17 @@ public class GraphCanvas extends Canvas {
         double majorStep = minorStep * 5.0;
 
         // Minor Grid
-        g.setStroke(Color.web("#eeeeee"));
+        g.setStroke(minorGridColor);
         g.setLineWidth(1);
         drawGridLines(g, minorStep, xVisMin, xVisMax, yVisMin, yVisMax, w, h);
 
         // Major Grid
-        g.setStroke(Color.web("#c9c9c9"));
+        g.setStroke(majorGridColor);
         g.setLineWidth(1.4);
         drawGridLines(g, majorStep, xVisMin, xVisMax, yVisMin, yVisMax, w, h);
 
         // Axes
-        g.setStroke(Color.web("#666666"));
+        g.setStroke(axisColor);
         g.setLineWidth(2.6);
         double xAxisY = wyToPy(0);
         double yAxisX = wxToPx(0);
@@ -189,7 +199,7 @@ public class GraphCanvas extends Canvas {
         if (yAxisX >= 0 && yAxisX <= w) g.strokeLine(yAxisX, 0, yAxisX, h);
 
         // Numbers
-        g.setFill(Color.web("#444444"));
+        g.setFill(textColor);
         g.setFont(Font.font("Arial", 12));
 
         long startX = (long) Math.ceil(xVisMin / majorStep);
@@ -211,7 +221,6 @@ public class GraphCanvas extends Canvas {
             g.fillText(formatNumber(val), yAxisX + 8, py + 4);
         }
         g.fillText("0", yAxisX - 12, xAxisY + 16);
-
         // Plot Equations
         g.setLineWidth(2.2);
         for (PlotEquation eq : equations) {
@@ -228,7 +237,6 @@ public class GraphCanvas extends Canvas {
             }
         }
     }
-
     private void drawGridLines(GraphicsContext g, double step,
                                double xMin, double xMax,
                                double yMin, double yMax,

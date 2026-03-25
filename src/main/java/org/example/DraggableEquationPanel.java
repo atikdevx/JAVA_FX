@@ -321,6 +321,3 @@ public class DraggableEquationPanel extends VBox {
 
 
 
-
-
-
