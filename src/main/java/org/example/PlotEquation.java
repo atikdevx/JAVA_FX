@@ -4,6 +4,8 @@ import javafx.scene.paint.Color;
 import net.objecthunter.exp4j.Expression;
 import net.objecthunter.exp4j.ExpressionBuilder;
 import net.objecthunter.exp4j.function.Function;
+// --- CHANGED: Added Operator import ---
+import net.objecthunter.exp4j.operator.Operator;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -40,6 +42,37 @@ public class PlotEquation {
             "sqrt", "cbrt", "abs", "ceil", "floor", "exp", "log", "log10", "log2",
             "signum", "x", "y", "pi", "e"
     ));
+
+    // --- CHANGED: Custom power operator to handle negative bases with fractional powers (e.g. x^(2/3)) ---
+    private static final Operator POWER_OPERATOR = new Operator("^", 2, true, Operator.PRECEDENCE_POWER) {
+        @Override
+        public double apply(double... args) {
+            double base = args[0];
+            double exponent = args[1];
+
+            if (base < 0) {
+                // If it's an integer exponent, let normal math handle it
+                if (Math.abs(exponent - Math.round(exponent)) < 1e-9) {
+                    return Math.pow(base, exponent);
+                }
+                // Check if exponent is a fraction with a small odd denominator (3, 5, 7, 9, 11)
+                for (int q = 3; q <= 11; q += 2) {
+                    double p = exponent * q;
+                    if (Math.abs(p - Math.round(p)) < 1e-9) {
+                        // It is a valid fraction!
+                        long pInt = Math.round(p);
+                        double res = Math.pow(Math.abs(base), exponent);
+                        // If the numerator is odd, the result is negative. If even, positive.
+                        return (pInt % 2 != 0) ? -res : res;
+                    }
+                }
+            }
+            // Default behavior for everything else
+            return Math.pow(base, exponent);
+        }
+    };
+    // -------------------------------------------------------------------------------------------------
+
     private static final Function LOG10_FUNC = new Function("log10", 1) {
         @Override
         public double apply(double... args) {
@@ -92,8 +125,9 @@ public class PlotEquation {
                 allVars.addAll(varsY);
 
                 try {
-                    this.pointXExpr = new ExpressionBuilder(normalize(sX)).variables(allVars).build();
-                    this.pointYExpr = new ExpressionBuilder(normalize(sY)).variables(allVars).build();
+                    // --- CHANGED: Added custom .operator(POWER_OPERATOR) to bypass Java's NaN rules ---
+                    this.pointXExpr = new ExpressionBuilder(normalize(sX)).variables(allVars).operator(POWER_OPERATOR).build();
+                    this.pointYExpr = new ExpressionBuilder(normalize(sY)).variables(allVars).operator(POWER_OPERATOR).build();
 
                     this.isPoint = true;
                     for (String v : allVars) {
@@ -142,6 +176,7 @@ public class PlotEquation {
                             .variables(params.keySet())
                             .function(LOG10_FUNC)
                             .function(LN_FUNC)
+                            .operator(POWER_OPERATOR) // --- CHANGED: Appended custom power operator ---
                             .build();
                 } catch (Exception e) {
                     this.implicitExpr = null;
@@ -154,6 +189,7 @@ public class PlotEquation {
                         .variables(params.keySet())
                         .function(LOG10_FUNC)
                         .function(LN_FUNC)
+                        .operator(POWER_OPERATOR) // --- CHANGED: Appended custom power operator ---
                         .build();
             } catch (Exception e) {
                 this.explicitExpr = null;

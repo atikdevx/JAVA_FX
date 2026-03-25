@@ -1,13 +1,11 @@
 package com.equationplotter.ui;
+
 import javafx.scene.shape.CullFace;
 import javafx.scene.shape.MeshView;
 import javafx.scene.shape.TriangleMesh;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
-import javafx.scene.text.Text;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 import javafx.geometry.Point3D;
 import javafx.scene.*;
 import javafx.scene.input.MouseEvent;
@@ -29,8 +27,8 @@ public class Graph3DPane extends StackPane {
     private final Group boxGroup = new Group();
     private final Group gridGroup = new Group();
     private final Group axesGroup = new Group();
-    private final Group axisLabelsGroup=new Group();
-    private double currentLabelStep=-1;
+    private final Group axisLabelsGroup = new Group();
+    private double currentLabelStep = -1;
     private final PerspectiveCamera camera = new PerspectiveCamera(true);
     private final SubScene subScene;
 
@@ -42,44 +40,10 @@ public class Graph3DPane extends StackPane {
     private double anchorY;
     private double anchorAngleX;
     private double anchorAngleY;
-    private MeshView createArrowHead(double sizeDouble, double lengthDouble, PhongMaterial mat) {
-        // Cast the doubles to floats for the TriangleMesh
-        float size = (float) sizeDouble;
-        float length = (float) lengthDouble;
 
-        TriangleMesh mesh = new TriangleMesh();
-
-        // Create the 5 points of a pyramid (using floats)
-        mesh.getPoints().addAll(
-                0f, 0f, length,         // 0: tip
-                -size, -size, 0f,       // 1: base corner
-                size, -size, 0f,       // 2: base corner
-                size,  size, 0f,       // 3: base corner
-                -size,  size, 0f        // 4: base corner
-        );
-
-        // Dummy texture coordinates
-        mesh.getTexCoords().addAll(0f, 0f);
-
-        // Connect the points to form faces
-        mesh.getFaces().addAll(
-                0,0, 2,0, 1,0,
-                0,0, 3,0, 2,0,
-                0,0, 4,0, 3,0,
-                0,0, 1,0, 4,0,
-                1,0, 2,0, 3,0,
-                1,0, 3,0, 4,0
-        );
-
-        MeshView view = new MeshView(mesh);
-        view.setMaterial(mat);
-        view.setCullFace(CullFace.NONE);
-        return view;
-    }
     private final List<Plot3DDefinition> plots = new ArrayList<>();
 
     public Graph3DPane() {
-
         setStyle("-fx-background-color: #f7f7f7;");
 
         world.getTransforms().addAll(rotateX, rotateY, worldTranslate);
@@ -95,8 +59,9 @@ public class Graph3DPane extends StackPane {
         world.getChildren().addAll(boxGroup, gridGroup, axesGroup, graphGroup);
         root3D.getChildren().add(world);
 
+        // Kept the fix here to prevent the black triangle glitch!
         camera.setNearClip(0.1);
-        camera.setFarClip(30000);
+        camera.setFarClip(10000);
         camera.setTranslateZ(-2000);
         camera.setFieldOfView(28);
 
@@ -117,6 +82,37 @@ public class Graph3DPane extends StackPane {
         });
     }
 
+    private MeshView createArrowHead(double sizeDouble, double lengthDouble, PhongMaterial mat) {
+        float size = (float) sizeDouble;
+        float length = (float) lengthDouble;
+
+        TriangleMesh mesh = new TriangleMesh();
+
+        mesh.getPoints().addAll(
+                0f, 0f, length,
+                -size, -size, 0f,
+                size, -size, 0f,
+                size,  size, 0f,
+                -size,  size, 0f
+        );
+
+        mesh.getTexCoords().addAll(0f, 0f);
+
+        mesh.getFaces().addAll(
+                0,0, 2,0, 1,0,
+                0,0, 3,0, 2,0,
+                0,0, 4,0, 3,0,
+                0,0, 1,0, 4,0,
+                1,0, 2,0, 3,0,
+                1,0, 3,0, 4,0
+        );
+
+        MeshView view = new MeshView(mesh);
+        view.setMaterial(mat);
+        view.setCullFace(CullFace.NONE);
+        return view;
+    }
+
     private void buildLights() {
         AmbientLight ambient = new AmbientLight(Color.rgb(130, 130, 130));
         PointLight pointLight = new PointLight(Color.WHITE);
@@ -130,8 +126,10 @@ public class Graph3DPane extends StackPane {
         gridGroup.getChildren().clear();
         double size = 640;
         double step = 40;
+
         PhongMaterial minor = new PhongMaterial(Color.web("#555555"));
         PhongMaterial major = new PhongMaterial(Color.web("#2f2f2f"));
+
         for (double i = -size; i <= size; i += step) {
             boolean isMajor = Math.round(i / step) % 5 == 0;
             Box lineX = new Box(size * 2, 0.6, 0.6);
@@ -143,11 +141,12 @@ public class Graph3DPane extends StackPane {
             gridGroup.getChildren().addAll(lineX, lineZ);
         }
     }
+
     private void buildAxes() {
         axesGroup.getChildren().clear();
+
         PhongMaterial axisMat = new PhongMaterial(Color.web("#111111"));
 
-        // --- 1. Lines ---
         Box xAxis = new Box(820, 3, 3);
         xAxis.setMaterial(axisMat);
 
@@ -158,40 +157,37 @@ public class Graph3DPane extends StackPane {
         Box zAxis = new Box(3, 3, 820);
         zAxis.setMaterial(axisMat);
 
-        // --- 2. 3D Arrowheads ---
-        // X Arrow (Rotate to point right)
         MeshView xArrow = createArrowHead(8, 24, axisMat);
         xArrow.setTranslateX(410);
         xArrow.getTransforms().add(new Rotate(90, Rotate.Y_AXIS));
 
-        // Y Arrow (Rotate to point up)
         MeshView yArrow = createArrowHead(8, 24, axisMat);
         yArrow.setTranslateY(-820);
         yArrow.getTransforms().add(new Rotate(90, Rotate.X_AXIS));
 
-        // Z Arrow (Points forward by default)
         MeshView zArrow = createArrowHead(8, 24, axisMat);
         zArrow.setTranslateZ(410);
 
-        // --- 3. Text Labels ---
         Font labelFont = Font.font("Arial", FontWeight.BOLD, 24);
 
         Text xLabel = new Text("X");
         xLabel.setFont(labelFont);
-        xLabel.setTranslateX(445); // Pushed further out to clear the arrowhead
+        xLabel.setFill(Color.BLACK);
+        xLabel.setTranslateX(445);
         xLabel.setTranslateY(-10);
 
-        Text yLabel = new Text("Y");
+        Text yLabel = new Text("Z");
         yLabel.setFont(labelFont);
-        yLabel.setTranslateY(-850); // Pushed further out to clear the arrowhead
+        yLabel.setFill(Color.BLACK);
+        yLabel.setTranslateY(-850);
         yLabel.setTranslateX(15);
 
-        Text zLabel = new Text("Z");
+        Text zLabel = new Text("Y");
         zLabel.setFont(labelFont);
-        zLabel.setTranslateZ(445); // Pushed further out to clear the arrowhead
+        zLabel.setFill(Color.BLACK);
+        zLabel.setTranslateZ(445);
         zLabel.setTranslateY(-10);
 
-        // Add everything to the group
         axesGroup.getChildren().addAll(
                 xAxis, yAxis, zAxis,
                 xArrow, yArrow, zArrow,
@@ -199,16 +195,15 @@ public class Graph3DPane extends StackPane {
                 axisLabelsGroup
         );
     }
+
     private void updateAxisMarkings(double zDistance) {
-        // Your graph maps 1 Math Unit to 40 JavaFX Pixels (1 grid square)
         final double SCALE = 40.0;
 
-        // 1. Determine tick spacing based on zoom
         int step;
-        if (zDistance < 1000) step = 40;       // Every 40 pixels (1 math unit)
-        else if (zDistance < 2000) step = 80;  // Every 80 pixels (2 math units)
-        else if (zDistance < 3500) step = 200; // Every 200 pixels (5 math units)
-        else step = 400;                       // Every 400 pixels (10 math units)
+        if (zDistance < 1000) step = 40;
+        else if (zDistance < 2000) step = 80;
+        else if (zDistance < 3500) step = 200;
+        else step = 400;
 
         if (step == currentLabelStep) return;
         currentLabelStep = step;
@@ -216,17 +211,14 @@ public class Graph3DPane extends StackPane {
         axisLabelsGroup.getChildren().clear();
         Font tickFont = Font.font("Arial", FontWeight.NORMAL, 14);
 
-        // 2. Generate X and Z labels
         for (int i = -400; i <= 400; i += step) {
-            if (i == 0) continue; // Skip origin
+            if (i == 0) continue;
 
-            // Calculate actual math coordinate and format it cleanly (drop .0 if whole number)
             double mathValue = i / SCALE;
             String labelText = (mathValue == (long) mathValue) ?
                     String.valueOf((long) mathValue) :
                     String.valueOf(mathValue);
 
-            // X-Axis
             Text xText = new Text(labelText);
             xText.setFont(tickFont);
             xText.setFill(Color.DARKBLUE);
@@ -234,7 +226,6 @@ public class Graph3DPane extends StackPane {
             xText.setTranslateY(15);
             xText.setTranslateZ(0);
 
-            // Z-Axis
             Text zText = new Text(labelText);
             zText.setFont(tickFont);
             zText.setFill(Color.DARKRED);
@@ -244,10 +235,7 @@ public class Graph3DPane extends StackPane {
 
             axisLabelsGroup.getChildren().addAll(xText, zText);
         }
-
-        // 3. Generate Y labels (Vertical)
         for (int i = -step; i >= -800; i -= step) {
-            // Calculate math coordinate
             double mathValue = Math.abs(i) / SCALE;
             String labelText = (mathValue == (long) mathValue) ?
                     String.valueOf((long) mathValue) :
@@ -271,7 +259,9 @@ public class Graph3DPane extends StackPane {
         double halfD = 400;
         double topY = -height / 2.0;
         double bottomY = height / 2.0;
+
         PhongMaterial boxMat = new PhongMaterial(Color.web("#bfbfbf"));
+
         addEdge(-halfW, topY, -halfD, halfW, topY, -halfD, boxMat);
         addEdge(halfW, topY, -halfD, halfW, topY, halfD, boxMat);
         addEdge(halfW, topY, halfD, -halfW, topY, halfD, boxMat);

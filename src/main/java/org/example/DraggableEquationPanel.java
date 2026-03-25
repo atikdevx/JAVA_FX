@@ -72,6 +72,7 @@ public class DraggableEquationPanel extends VBox {
         minBtn.setOnAction(e -> toggleMinimize());
 
         getChildren().addAll(header, addBtn, rowsBox);
+        addRow("x^(2/3) + (e/3)*(3.1416-x^2)^(0.5)*sin(3.1416*x*a) = y", randomColor());
         pushUpdate();
     }
 

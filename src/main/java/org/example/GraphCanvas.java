@@ -156,7 +156,7 @@ public class GraphCanvas extends Canvas {
         GraphicsContext g = getGraphicsContext2D();
 
         // --- THEME COLORS ---
-        Color bgColor = isDarkMode ? Color.web("#1e1e1e") : Color.WHITE;
+        Color bgColor = isDarkMode ? Color.web("#121212") : Color.WHITE;
         Color minorGridColor = isDarkMode ? Color.web("#333333") : Color.web("#eeeeee");
         Color majorGridColor = isDarkMode ? Color.web("#555555") : Color.web("#c9c9c9");
         Color axisColor = isDarkMode ? Color.web("#aaaaaa") : Color.web("#666666");
@@ -361,7 +361,7 @@ public class GraphCanvas extends Canvas {
         double xMaxPlot = xCenter + halfWUnits;
         double yMinPlot = yCenter - halfHUnits;
         double yMaxPlot = yCenter + halfHUnits;
-        double step = 10.0 / unitPx;
+        double step = 4 / unitPx;
         if (fastRenderMode) step *= 1.8;
 
         int xSteps = (int) Math.ceil((xMaxPlot - xMinPlot) / step) + 1;
