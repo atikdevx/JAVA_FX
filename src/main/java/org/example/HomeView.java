@@ -20,7 +20,8 @@ public class HomeView extends StackPane {
 
     private final Random random = new Random();
 
-    public HomeView(Runnable onStartPlotting, Runnable onStart3DPlotting) {
+    // CHANGED: Added "Runnable onStartPolarPlotting" to the constructor
+    public HomeView(Runnable onStartPlotting, Runnable onStart3DPlotting, Runnable onStartPolarPlotting) {
 
         setBackground(new Background(new BackgroundFill(
                 new LinearGradient(
@@ -176,15 +177,24 @@ public class HomeView extends StackPane {
 
         Button startBtn = createMenuButton("2D Graph", true);
         Button start3DBtn = createMenuButton("3D Graph", false);
+
+        // CHANGED: Added the Polar Graph Button
+        Button startPolarBtn = createMenuButton("Polar Graph", false);
+
         Button aboutBtn = createMenuButton("About", false);
         Button exitBtn = createMenuButton("Exit", false);
 
         startBtn.setOnAction(e -> onStartPlotting.run());
         start3DBtn.setOnAction(e -> onStart3DPlotting.run());
+
+        // CHANGED: Hooked up the Polar Button action
+        startPolarBtn.setOnAction(e -> onStartPolarPlotting.run());
+
         aboutBtn.setOnAction(e -> System.out.println("About clicked"));
         exitBtn.setOnAction(e -> javafx.application.Platform.exit());
 
-        menuPanel.getChildren().addAll(menuTitle, startBtn, start3DBtn, aboutBtn, exitBtn);
+        // CHANGED: Added startPolarBtn to the VBox
+        menuPanel.getChildren().addAll(menuTitle, startBtn, start3DBtn, startPolarBtn, aboutBtn, exitBtn);
 
         BorderPane mainLayout = new BorderPane();
         mainLayout.setPadding(new Insets(30, 70, 30, 40));
