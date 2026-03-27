@@ -69,14 +69,14 @@ public class Plot3DDefinition {
 
                     Node node = buildNode();
 
-                    if (node != null && callback != null) {
+                    if (node != null && callback != null && !Thread.currentThread().isInterrupted()) {
                         javafx.application.Platform.runLater(callback);
                     }
                 });
                 buildThread.setDaemon(true);
                 buildThread.start();
             }
-        }, 250);
+        }, 150); // Dropped debounce slightly for more responsive slider feeling
     }
 
     public void rebuild() {
@@ -91,7 +91,10 @@ public class Plot3DDefinition {
         type = null;
 
         String s = normalize(rawText);
-        if (s.isEmpty()) return;
+        if (s.isEmpty()) {
+            params.clear();
+            return;
+        }
 
         try {
             tryParsePoint(s);
@@ -195,6 +198,7 @@ public class Plot3DDefinition {
                 extrudedExpr = new ExpressionBuilder(left).variables(exprVars).build();
                 type = Type.EXTRUDED_X_BY_Y;
             }
+            ensureParams(vars);
         } catch (Exception ignored) {
             type = null;
         }
@@ -230,12 +234,8 @@ public class Plot3DDefinition {
             expr = s.substring(2).trim();
             if (expr.isEmpty()) return;
 
-            // Do not let incomplete or non-surface equations fall through here.
             if (extractVariables(expr).contains("z")) return;
         } else {
-            // Without an equals sign, only treat it as z = f(x,y).
-            // If z is present, this is likely a partially typed implicit equation
-            // and should stay invalid until the user finishes typing.
             if (extractVariables(s).contains("z")) return;
             expr = s;
         }
@@ -284,6 +284,8 @@ public class Plot3DDefinition {
         double tMin = -16, tMax = 16, dt = 0.04;
 
         for (double t = tMin; t <= tMax; t += dt) {
+            if (Thread.currentThread().isInterrupted()) return null; // STOP IF CANCELLED
+
             double x = eval(curveXExpr, 0, 0, 0, t);
             double y = eval(curveYExpr, 0, 0, 0, t);
             double z = eval(curveZExpr, 0, 0, 0, t);
@@ -320,6 +322,8 @@ public class Plot3DDefinition {
         TriangleMesh mesh = new TriangleMesh();
 
         for (int ix = 0; ix <= xSteps; ix++) {
+            if (Thread.currentThread().isInterrupted()) return null; // STOP IF CANCELLED
+
             double x = xMin + ix * dx;
             for (int iy = 0; iy <= ySteps; iy++) {
                 double y = yMin + iy * dy;
@@ -393,6 +397,8 @@ public class Plot3DDefinition {
         int[][] idx = new int[axisSteps + 1][depthSteps + 1];
 
         for (int i = 0; i <= axisSteps; i++) {
+            if (Thread.currentThread().isInterrupted()) return null; // STOP IF CANCELLED
+
             double a = axisMin + i * axisStep;
 
             double value = (type == Type.EXTRUDED_Y_BY_X)
@@ -485,13 +491,26 @@ public class Plot3DDefinition {
         return tryParseCenteredSphere(parts[1], parts[0]);
     }
 
+    // UPDATED: Now supports evaluating parameters dynamically!
     private SphereInfo tryParseCenteredSphere(String exprSide, String constantSide) {
         double constant;
         try {
             constant = Double.parseDouble(constantSide);
         } catch (Exception ex) {
-            return null;
+            // If it's a parameter like 'a', evaluate it using current slider value
+            try {
+                Set<String> vars = extractVariables(constantSide);
+                Expression e = new ExpressionBuilder(constantSide).variables(vars).build();
+                for (String v : vars) {
+                    e.setVariable(v, getParam(v, 1.0));
+                }
+                constant = e.evaluate();
+            } catch (Exception e2) {
+                return null;
+            }
         }
+
+        // Return null instead of crashing if slider goes negative
         if (constant < 0) return null;
 
         SphereInfo originSphere = parseOriginSphere(exprSide, constant);
@@ -549,6 +568,8 @@ public class Plot3DDefinition {
         double[][][] val = new double[N][N][N];
 
         for (int i = 0; i < N; i++) {
+            if (Thread.currentThread().isInterrupted()) return null; // STOP IF CANCELLED
+
             double x = min + i * step;
             for (int j = 0; j < N; j++) {
                 double y = min + j * step;
@@ -567,6 +588,8 @@ public class Plot3DDefinition {
         int[] cx = new int[8], cy = new int[8], cz = new int[8];
 
         for (int i = 0; i < steps; i++) {
+            if (Thread.currentThread().isInterrupted()) return null; // STOP IF CANCELLED
+
             for (int j = 0; j < steps; j++) {
                 for (int k = 0; k < steps; k++) {
                     for (int c = 0; c < 8; c++) {
@@ -807,11 +830,17 @@ public class Plot3DDefinition {
     }
 
     private void ensureParams(Set<String> vars) {
+        Set<String> currentValidParams = new HashSet<>();
+
         for (String v : vars) {
-            if (!Arrays.asList("x", "y", "z", "t", "pi", "e").contains(v) && !params.containsKey(v)) {
-                params.put(v, 1.0);
+            if (!Arrays.asList("x", "y", "z", "t", "pi", "e").contains(v)) {
+                currentValidParams.add(v);
+                if (!params.containsKey(v)) {
+                    params.put(v, 1.0);
+                }
             }
         }
+        params.keySet().retainAll(currentValidParams);
     }
 
     private Set<String> extractVariables(String expr) {
@@ -870,7 +899,7 @@ public class Plot3DDefinition {
         return Double.isNaN(v) || Double.isInfinite(v);
     }
 
-    // Getters / Setters
+    // --- Getters / Setters ---
     public String getRawText() { return rawText; }
 
     public void setRawText(String rawText) {
@@ -883,4 +912,16 @@ public class Plot3DDefinition {
     public boolean isVisible() { return visible; }
     public void setVisible(boolean visible) { this.visible = visible; }
     public Type getType() { return type; }
+
+    public Set<String> getParamNames() {
+        return params.keySet();
+    }
+
+    public double getParam(String name, double defaultValue) {
+        return params.getOrDefault(name, defaultValue);
+    }
+
+    public void setParam(String name, double value) {
+        params.put(name, value);
+    }
 }

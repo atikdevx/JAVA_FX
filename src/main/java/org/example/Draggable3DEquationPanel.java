@@ -1,14 +1,16 @@
 package com.equationplotter.ui;
+
+import javafx.animation.Animation;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
-import javafx.scene.control.Button;
-import javafx.scene.control.ColorPicker;
-import javafx.scene.control.Label;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.Tooltip;
+import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
+import javafx.util.Duration;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -131,6 +133,7 @@ public class Draggable3DEquationPanel extends VBox {
     }
 
     private void addRow(String text, Color color) {
+        // Wrap now holds the main input row AND the parameters box below it
         VBox wrap = new VBox(6);
 
         HBox top = new HBox(8);
@@ -173,14 +176,22 @@ public class Draggable3DEquationPanel extends VBox {
         """);
 
         top.getChildren().addAll(picker, input, eye, del);
-        wrap.getChildren().add(top);
+
+        // --- NEW: Add the params box to hold our sliders ---
+        VBox paramsBox = new VBox(6);
+        wrap.getChildren().addAll(top, paramsBox);
         rowsBox.getChildren().add(wrap);
 
         Plot3DDefinition def = new Plot3DDefinition(text, color);
         plotByRow.put(wrap, def);
 
+        // Build the initial sliders if the default text has parameters
+        rebuildParamsUI(paramsBox, def);
+
+        // --- UPDATED: Rebuild sliders when text changes ---
         input.textProperty().addListener((o, oldVal, newVal) -> {
             def.setRawText(newVal);
+            rebuildParamsUI(paramsBox, def);
             pushUpdate();
         });
 
@@ -202,6 +213,89 @@ public class Draggable3DEquationPanel extends VBox {
             pushUpdate();
         });
     }
+
+    // --- NEW: Methods to build and manage the sliders ---
+    private void rebuildParamsUI(VBox box, Plot3DDefinition eq) {
+        box.getChildren().clear();
+        // Assuming Plot3DDefinition has getParamNames() just like your Polar class!
+        for (String p : eq.getParamNames()) {
+            box.getChildren().add(buildParamRow(eq, p));
+        }
+    }
+
+    private HBox buildParamRow(Plot3DDefinition eq, String name) {
+        Label lbl = new Label(name + " =");
+        lbl.setStyle("-fx-font-weight: bold; -fx-text-fill: #24314d;");
+
+        TextField minField = new TextField("-10"); minField.setPrefWidth(45);
+        TextField maxField = new TextField("10"); maxField.setPrefWidth(45);
+
+        // Assuming Plot3DDefinition has getParam() just like your Polar class!
+        Slider s = new Slider(-10, 10, eq.getParam(name, 1)); s.setPrefWidth(160);
+        Label val = new Label(String.format("%.2f", s.getValue())); val.setMinWidth(50);
+
+        // --- BULLETPROOF FIX: Handles Enter Key AND Clicking Away ---
+        Runnable updateMin = () -> {
+            try {
+                double newMin = Double.parseDouble(minField.getText());
+                s.setMin(newMin);
+                if (s.getValue() < newMin) s.setValue(newMin);
+            } catch (NumberFormatException ex) {
+                minField.setText(String.valueOf(s.getMin()));
+            }
+        };
+
+        Runnable updateMax = () -> {
+            try {
+                double newMax = Double.parseDouble(maxField.getText());
+                s.setMax(newMax);
+                if (s.getValue() > newMax) s.setValue(newMax);
+            } catch (NumberFormatException ex) {
+                maxField.setText(String.valueOf(s.getMax()));
+            }
+        };
+
+        minField.setOnAction(e -> updateMin.run());
+        maxField.setOnAction(e -> updateMax.run());
+        minField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> { if (!isNowFocused) updateMin.run(); });
+        maxField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> { if (!isNowFocused) updateMax.run(); });
+
+        Button play = new Button("▶");
+        play.setStyle("-fx-background-color: #dfe6f7; -fx-cursor: hand; -fx-background-radius: 6;");
+
+        final double[] dir = {1};
+        Timeline tl = new Timeline(new KeyFrame(Duration.millis(16), e -> {
+            double v = s.getValue(), min = s.getMin(), max = s.getMax();
+            double nv = v + (max - min) * 0.001 * dir[0];
+            if (nv >= max) { nv = max; dir[0] = -1; } else if (nv <= min) { nv = min; dir[0] = 1; }
+            s.setValue(nv);
+        }));
+        tl.setCycleCount(Animation.INDEFINITE);
+        play.setOnAction(e -> {
+            if (tl.getStatus() == Animation.Status.RUNNING) { tl.stop(); play.setText("▶"); }
+            else { tl.play(); play.setText("⏸"); }
+        });
+
+        // Assuming Plot3DDefinition has setParam() just like your Polar class!
+        s.valueProperty().addListener((o,a,b)->{
+            val.setText(String.format("%.2f", b.doubleValue()));
+            eq.setParam(name, b.doubleValue());
+            pushUpdate();
+        });
+
+        HBox rangeBox = new HBox(3, minField, new Label("…"), maxField);
+        rangeBox.setAlignment(Pos.CENTER);
+
+        HBox row = new HBox(6, lbl, rangeBox, s, val, play);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(4, 8, 4, 8));
+        row.setBackground(new Background(new BackgroundFill(Color.rgb(0,0,0,0.04), new CornerRadii(8), Insets.EMPTY)));
+
+        // Add a little left margin so it looks indented under the text area
+        VBox.setMargin(row, new Insets(0, 0, 0, 20));
+        return row;
+    }
+    // ----------------------------------------------------------
 
     private void pushUpdate() {
         if (onChange == null) return;
