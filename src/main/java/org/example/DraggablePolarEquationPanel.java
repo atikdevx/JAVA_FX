@@ -49,7 +49,7 @@ public class DraggablePolarEquationPanel extends VBox {
         getChildren().addAll(header, addBtn, rowsBox);
 
         // Let's add a beautiful default polar flower!
-        addRow("3 * sin(4 * t)", Color.MAGENTA);
+        addRow("exp(sin(t)) - 2 * cos(4 * t) + (sin((2 * t - pi) / 24))^5", Color.MAGENTA);
         pushUpdate();
     }
 
@@ -108,6 +108,42 @@ public class DraggablePolarEquationPanel extends VBox {
         TextField maxField = new TextField("10"); maxField.setPrefWidth(45);
         Slider s = new Slider(-10, 10, eq.getParam(name, 1)); s.setPrefWidth(160);
         Label val = new Label(String.format("%.2f", s.getValue())); val.setMinWidth(50);
+
+        // --- BULLETPROOF FIX: Handles Enter Key AND Clicking Away ---
+        Runnable updateMin = () -> {
+            try {
+                double newMin = Double.parseDouble(minField.getText());
+                s.setMin(newMin);
+                // Ensure the slider dot doesn't get stuck outside the new range
+                if (s.getValue() < newMin) s.setValue(newMin);
+            } catch (NumberFormatException ex) {
+                minField.setText(String.valueOf(s.getMin())); // Revert if invalid input
+            }
+        };
+
+        Runnable updateMax = () -> {
+            try {
+                double newMax = Double.parseDouble(maxField.getText());
+                s.setMax(newMax);
+                // Ensure the slider dot doesn't get stuck outside the new range
+                if (s.getValue() > newMax) s.setValue(newMax);
+            } catch (NumberFormatException ex) {
+                maxField.setText(String.valueOf(s.getMax())); // Revert if invalid input
+            }
+        };
+
+        // 1. Triggers when you press Enter
+        minField.setOnAction(e -> updateMin.run());
+        maxField.setOnAction(e -> updateMax.run());
+
+        // 2. Triggers when you click away from the text box
+        minField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
+            if (!isNowFocused) updateMin.run();
+        });
+        maxField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
+            if (!isNowFocused) updateMax.run();
+        });
+        // ------------------------------------------------------------
 
         Button play = new Button("▶");
         final double[] dir = {1};
