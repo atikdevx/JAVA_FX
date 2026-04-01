@@ -279,82 +279,152 @@ public class GraphCanvas extends Canvas {
             g.fillText(label, px + 8, py - 8);
         }
     }
-
-    // ---------- Explicit plot ----------
+// ---------- Explicit plot ----------
     private void plotExplicit(GraphicsContext g, PlotEquation eq, double halfWUnits, double halfHUnits) {
-
         double xMinPlot = xCenter - halfWUnits;
         double xMaxPlot = xCenter + halfWUnits;
-
-        // visible Y range in world units
         double yMinPlot = yCenter - halfHUnits;
         double yMaxPlot = yCenter + halfHUnits;
+
+        // Render slightly off-screen to prevent jagged path breaks at the top/bottom
+        double overdrawMargin = (yMaxPlot - yMinPlot) * 0.1;
 
         double step = 1.0 / unitPx;
         if (fastRenderMode) step *= 2.0;
 
         boolean penDown = false;
+        double prevY = Double.NaN;
+        double prevX = Double.NaN;
 
         for (double x = xMinPlot; x <= xMaxPlot; x += step) {
-
             double y = eq.evalExplicit(x);
 
-            // ---- break on NaN/Infinity (domain errors, discontinuity) ----
+            // ---- 1. Handle NaN / Undefined (Domain boundary or Log Asymptote) ----
             if (bad(y)) {
                 if (penDown) {
+                    // Valid -> NaN. Find exact boundary via binary search.
+                    double left = prevX;
+                    double right = x;
+                    double edgeX = prevX;
+                    double edgeY = prevY;
+
+                    for (int k = 0; k < 20; k++) {
+                        double mid = (left + right) / 2.0;
+                        double midY = eq.evalExplicit(mid);
+                        if (bad(midY)) right = mid;
+                        else {
+                            left = mid;
+                            edgeX = mid;
+                            edgeY = midY;
+                        }
+                    }
+
+                    // Calculus Derivative Test: Is it a vertical asymptote like ln(x)?
+                    double testY = eq.evalExplicit(edgeX - (step * 0.05));
+                    if (!bad(testY)) {
+                        double slope = Math.abs((edgeY - testY) / (step * 0.05));
+                        if (slope > 150.0) { // Plunging to infinity
+                            edgeY = (edgeY < prevY) ? yMinPlot - overdrawMargin : yMaxPlot + overdrawMargin;
+                        }
+                    }
+
+                    g.lineTo(wxToPx(edgeX), wyToPy(edgeY));
                     g.stroke();
                     penDown = false;
                 }
+                prevX = x;
+                prevY = y;
                 continue;
             }
 
-            // ---- clip to top/bottom border then BREAK (Desmos feel) ----
-            if (y < yMinPlot) {
-                y = yMinPlot;
+            // ---- 2. Handle Valid Y ----
+            double clampedY = y;
+            if (y < yMinPlot - overdrawMargin) clampedY = yMinPlot - overdrawMargin;
+            else if (y > yMaxPlot + overdrawMargin) clampedY = yMaxPlot + overdrawMargin;
 
-                if (!penDown) {
-                    g.beginPath();
-                    g.moveTo(wxToPx(x), wyToPy(y));
-                    penDown = true;
-                } else {
-                    g.lineTo(wxToPx(x), wyToPy(y));
-                }
-
-                g.stroke();     // draw till border
-                penDown = false; // then break segment
-                continue;
-            }
-
-            if (y > yMaxPlot) {
-                y = yMaxPlot;
-
-                if (!penDown) {
-                    g.beginPath();
-                    g.moveTo(wxToPx(x), wyToPy(y));
-                    penDown = true;
-                } else {
-                    g.lineTo(wxToPx(x), wyToPy(y));
-                }
-
-                g.stroke();
-                penDown = false;
-                continue;
-            }
-
-            // ---- normal visible line ----
             if (!penDown) {
                 g.beginPath();
-                g.moveTo(wxToPx(x), wyToPy(y));
+                // Transition: NaN -> Valid
+                if (bad(prevY) && !Double.isNaN(prevX)) {
+                    double left = prevX;
+                    double right = x;
+                    double edgeX = x;
+                    double edgeY = y;
+
+                    for (int k = 0; k < 20; k++) {
+                        double mid = (left + right) / 2.0;
+                        double midY = eq.evalExplicit(mid);
+                        if (bad(midY)) left = mid;
+                        else {
+                            right = mid;
+                            edgeX = mid;
+                            edgeY = midY;
+                        }
+                    }
+
+                    // Calculus Derivative Test: Is it a vertical asymptote like ln(x)?
+                    double testY = eq.evalExplicit(edgeX + (step * 0.05));
+                    if (!bad(testY)) {
+                        double slope = Math.abs((testY - edgeY) / (step * 0.05));
+                        if (slope > 150.0) { // Plunging to infinity
+                            edgeY = (edgeY < y) ? yMinPlot - overdrawMargin : yMaxPlot + overdrawMargin;
+                        }
+                    }
+
+                    g.moveTo(wxToPx(edgeX), wyToPy(edgeY));
+                    g.lineTo(wxToPx(x), wyToPy(clampedY));
+                } else {
+                    g.moveTo(wxToPx(x), wyToPy(clampedY));
+                }
                 penDown = true;
             } else {
-                g.lineTo(wxToPx(x), wyToPy(y));
+                // ---- 3. Catch Valid -> Valid jumps across asymptotes (tan(x), 1/x) ----
+                boolean isAsymptote = false;
+                double pixelJump = Math.abs(y - prevY) * unitPx;
+
+                // A. Zoomed-in check: Extreme visual jump
+                if (pixelJump > 200.0) {
+                    double midX = (prevX + x) / 2.0;
+                    double midY = eq.evalExplicit(midX);
+                    if (bad(midY) || Math.abs(midY) > Math.max(Math.abs(prevY), Math.abs(y))) {
+                        isAsymptote = true;
+                    }
+                }
+                // B. Zoomed-out check: Sign change with diverging midpoint (tan(x))
+                else if (y * prevY < 0) {
+                    double midX = (prevX + x) / 2.0;
+                    double midY = eq.evalExplicit(midX);
+                    if (bad(midY) || Math.abs(midY) > Math.max(Math.abs(prevY), Math.abs(y)) * 2.0) {
+                        isAsymptote = true;
+                    }
+                }
+                // C. Zoomed-out check: Same sign, massive midpoint divergence (1/x^2)
+                else if (Math.abs(y - prevY) > (yMaxPlot - yMinPlot) * 0.1) {
+                    double midX = (prevX + x) / 2.0;
+                    double midY = eq.evalExplicit(midX);
+                    if (bad(midY) || Math.abs(midY) > Math.max(Math.abs(prevY), Math.abs(y)) * 3.0) {
+                        isAsymptote = true;
+                    }
+                }
+
+                if (isAsymptote) {
+                    // Shoot to infinity, break line, come from negative infinity
+                    g.lineTo(wxToPx(prevX), wyToPy(prevY > y ? yMaxPlot + overdrawMargin : yMinPlot - overdrawMargin));
+                    g.stroke();
+                    g.beginPath();
+                    g.moveTo(wxToPx(x), wyToPy(y > prevY ? yMaxPlot + overdrawMargin : yMinPlot - overdrawMargin));
+                    g.lineTo(wxToPx(x), wyToPy(clampedY));
+                } else {
+                    g.lineTo(wxToPx(x), wyToPy(clampedY));
+                }
             }
+
+            prevX = x;
+            prevY = y;
         }
 
         if (penDown) g.stroke();
     }
-
-
     // ---------- Implicit plot ----------
     private void plotImplicitSmooth(GraphicsContext g, PlotEquation eq, double halfWUnits, double halfHUnits) {
         double xMinPlot = xCenter - halfWUnits;
@@ -443,10 +513,3 @@ public class GraphCanvas extends Canvas {
         draw();
     }
 }
-
-
-
-
-
-
-

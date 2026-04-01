@@ -1,9 +1,10 @@
 package com.equationplotter;
 
+import com.equationplotter.ui.AboutPage;
 import com.equationplotter.ui.HomeView;
 import com.equationplotter.ui.SplashView;
 import com.equationplotter.ui.Workspace3DView;
-import com.equationplotter.ui.WorkspacePolarView; // <-- 1. ADDED IMPORT
+import com.equationplotter.ui.WorkspacePolarView;
 import com.equationplotter.ui.WorkspaceView;
 import javafx.animation.FadeTransition;
 import javafx.application.Application;
@@ -17,7 +18,8 @@ public class MainApp extends Application {
     private Stage stage;
     private WorkspaceView workspace;
     private Workspace3DView workspace3D;
-    private WorkspacePolarView workspacePolar; // <-- 2. ADDED FIELD
+    private WorkspacePolarView workspacePolar;
+    private Parent aboutView;
 
     @Override
     public void start(Stage stage) {
@@ -50,8 +52,12 @@ public class MainApp extends Application {
     }
 
     private void showHome() {
-        // <-- 3. ADDED 'this::showWorkspacePolar' to the constructor
-        HomeView home = new HomeView(this::showWorkspace, this::showWorkspace3D, this::showWorkspacePolar);
+        HomeView home = new HomeView(
+                this::showWorkspace,
+                this::showWorkspace3D,
+                this::showWorkspacePolar,
+                this::showAbout
+        );
         switchRootSmooth(home);
     }
 
@@ -69,12 +75,18 @@ public class MainApp extends Application {
         switchRootSmooth(workspace3D);
     }
 
-    // <-- 4. ADDED THIS WHOLE METHOD
     private void showWorkspacePolar() {
         if (workspacePolar == null) {
             workspacePolar = new WorkspacePolarView(this::showHome);
         }
         switchRootSmooth(workspacePolar);
+    }
+
+    private void showAbout() {
+        if (aboutView == null) {
+            aboutView = new AboutPage(this::showHome);
+        }
+        switchRootSmooth(aboutView);
     }
 
     public static void main(String[] args) {
