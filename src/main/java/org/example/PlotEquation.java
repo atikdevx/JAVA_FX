@@ -4,7 +4,6 @@ import javafx.scene.paint.Color;
 import net.objecthunter.exp4j.Expression;
 import net.objecthunter.exp4j.ExpressionBuilder;
 import net.objecthunter.exp4j.function.Function;
-// --- CHANGED: Added Operator import ---
 import net.objecthunter.exp4j.operator.Operator;
 
 import java.util.*;
@@ -38,12 +37,13 @@ public class PlotEquation {
 
     // Set of known functions
     private static final Set<String> KNOWN_FUNCS = new HashSet<>(Arrays.asList(
-            "sin", "cos", "tan", "asin", "acos", "atan", "sinh", "cosh", "tanh",
+            "sin", "cos", "tan", "sec", "csc", "cosec", "cot",
+            "asin", "acos", "atan", "sinh", "cosh", "tanh",
             "sqrt", "cbrt", "abs", "ceil", "floor", "exp", "log", "log10", "log2",
             "signum", "x", "y", "pi", "e"
     ));
 
-    // --- CHANGED: Custom power operator to handle negative bases with fractional powers (e.g. x^(2/3)) ---
+    // Custom power operator to handle negative bases with fractional powers (e.g. x^(2/3))
     private static final Operator POWER_OPERATOR = new Operator("^", 2, true, Operator.PRECEDENCE_POWER) {
         @Override
         public double apply(double... args) {
@@ -71,7 +71,6 @@ public class PlotEquation {
             return Math.pow(base, exponent);
         }
     };
-    // -------------------------------------------------------------------------------------------------
 
     private static final Function LOG10_FUNC = new Function("log10", 1) {
         @Override
@@ -91,6 +90,37 @@ public class PlotEquation {
         }
     };
 
+    private static double safeReciprocal(double v) {
+        return Math.abs(v) < 1e-12 ? Double.NaN : 1.0 / v;
+    }
+
+    private static final Function SEC_FUNC = new Function("sec", 1) {
+        @Override
+        public double apply(double... args) {
+            return safeReciprocal(Math.cos(args[0]));
+        }
+    };
+
+    private static final Function CSC_FUNC = new Function("csc", 1) {
+        @Override
+        public double apply(double... args) {
+            return safeReciprocal(Math.sin(args[0]));
+        }
+    };
+
+    private static final Function COSEC_FUNC = new Function("cosec", 1) {
+        @Override
+        public double apply(double... args) {
+            return safeReciprocal(Math.sin(args[0]));
+        }
+    };
+
+    private static final Function COT_FUNC = new Function("cot", 1) {
+        @Override
+        public double apply(double... args) {
+            return safeReciprocal(Math.tan(args[0]));
+        }
+    };
 
     public PlotEquation(String text, Color color) {
         this.rawText = text == null ? "" : text;
@@ -125,10 +155,27 @@ public class PlotEquation {
                 allVars.addAll(varsY);
 
                 try {
-                    // --- CHANGED: Added custom .operator(POWER_OPERATOR) to bypass Java's NaN rules ---
-                    this.pointXExpr = new ExpressionBuilder(normalize(sX)).variables(allVars).operator(POWER_OPERATOR).build();
-                    this.pointYExpr = new ExpressionBuilder(normalize(sY)).variables(allVars).operator(POWER_OPERATOR).build();
+                    this.pointXExpr = new ExpressionBuilder(normalize(sX))
+                            .variables(allVars)
+                            .function(LOG10_FUNC)
+                            .function(LN_FUNC)
+                            .function(SEC_FUNC)
+                            .function(CSC_FUNC)
+                            .function(COSEC_FUNC)
+                            .function(COT_FUNC)
+                            .operator(POWER_OPERATOR)
+                            .build();
 
+                    this.pointYExpr = new ExpressionBuilder(normalize(sY))
+                            .variables(allVars)
+                            .function(LOG10_FUNC)
+                            .function(LN_FUNC)
+                            .function(SEC_FUNC)
+                            .function(CSC_FUNC)
+                            .function(COSEC_FUNC)
+                            .function(COT_FUNC)
+                            .operator(POWER_OPERATOR)
+                            .build();
                     this.isPoint = true;
                     for (String v : allVars) {
                         if (!params.containsKey(v)) params.put(v, 1.0);
@@ -176,7 +223,7 @@ public class PlotEquation {
                             .variables(params.keySet())
                             .function(LOG10_FUNC)
                             .function(LN_FUNC)
-                            .operator(POWER_OPERATOR) // --- CHANGED: Appended custom power operator ---
+                            .operator(POWER_OPERATOR)
                             .build();
                 } catch (Exception e) {
                     this.implicitExpr = null;
@@ -189,7 +236,7 @@ public class PlotEquation {
                         .variables(params.keySet())
                         .function(LOG10_FUNC)
                         .function(LN_FUNC)
-                        .operator(POWER_OPERATOR) // --- CHANGED: Appended custom power operator ---
+                        .operator(POWER_OPERATOR)
                         .build();
             } catch (Exception e) {
                 this.explicitExpr = null;
@@ -236,6 +283,13 @@ public class PlotEquation {
         s = s.replace("cos^-1", "F_ACOS");
         s = s.replace("atan^-1", "F_ATAN");
         s = s.replace("tan^-1", "F_ATAN");
+
+        // reciprocal trig aliases first, before sin/cos/tan replacement
+        s = s.replace("cosec", "F_COSEC");
+        s = s.replace("csc", "F_CSC");
+        s = s.replace("sec", "F_SEC");
+        s = s.replace("cot", "F_COT");
+
         s = s.replace("sinh", "F_SINH");
         s = s.replace("cosh", "F_COSH");
         s = s.replace("tanh", "F_TANH");
@@ -250,6 +304,12 @@ public class PlotEquation {
         s = s.replace("log", "F_LOGTEN");
         s = s.replace("ln", "F_LN");
         s = s.replace("pi", "F_PI");
+
+        // Protect Step Functions
+        s = s.replace("ceil", "F_CEIL");
+        s = s.replace("floor", "F_FLOOR");
+        s = s.replace("signum", "F_SIGNUM");
+        s = s.replace("round", "F_ROUND");
 
         s = s.replaceAll("(F_[A-Z]+)([a-z0-9]+)", "$1($2)");
 
@@ -273,6 +333,10 @@ public class PlotEquation {
         s = s.replace("F_SIN", "sin");
         s = s.replace("F_COS", "cos");
         s = s.replace("F_TAN", "tan");
+        s = s.replace("F_SEC", "sec");
+        s = s.replace("F_CSC", "csc");
+        s = s.replace("F_COSEC", "cosec");
+        s = s.replace("F_COT", "cot");
         s = s.replace("F_SQRT", "sqrt");
         s = s.replace("F_CBRT", "cbrt");
         s = s.replace("F_ABS", "abs");
@@ -280,6 +344,12 @@ public class PlotEquation {
         s = s.replace("F_LOGTEN", "log10");
         s = s.replace("F_LN", "log");
         s = s.replace("F_PI", "pi");
+
+        // Restore Step Functions
+        s = s.replace("F_CEIL", "ceil");
+        s = s.replace("F_FLOOR", "floor");
+        s = s.replace("F_SIGNUM", "signum");
+        s = s.replace("F_ROUND", "round");
 
         return s;
     }

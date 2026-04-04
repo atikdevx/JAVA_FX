@@ -43,13 +43,13 @@ public class DraggablePolarEquationPanel extends VBox {
         header.setOnMouseDragged(e -> relocate(getLayoutX() + (e.getX() - dragOffsetX), getLayoutY() + (e.getY() - dragOffsetY)));
 
         addBtn.setMaxWidth(Double.MAX_VALUE);
-        addBtn.setOnAction(e -> addRow("", Color.BLUE));
+        addBtn.setOnAction(e -> addRow("", Color.BLUE, true)); // New equations are visible by default
         minBtn.setOnAction(e -> toggleMinimize());
 
         getChildren().addAll(header, addBtn, rowsBox);
 
-        // Let's add a beautiful default polar flower!
-        addRow("exp(sin(t)) - 2 * cos(4 * t) + (sin((2 * t - pi) / 24))^5", Color.MAGENTA);
+        // Default polar flower, hidden by default (passed false)
+        addRow("exp(sin(t)) - 2 * cos(4 * t) + (sin((2 * t - pi) / 24))^5", Color.MAGENTA, false);
         pushUpdate();
     }
 
@@ -66,7 +66,7 @@ public class DraggablePolarEquationPanel extends VBox {
         setStyle("-fx-background-color: rgba(255,255,255,0.92); -fx-background-radius: 14; -fx-border-color: rgba(0,0,0,0.10); -fx-border-radius: 14; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.10), 18, 0.2, 0, 6);");
     }
 
-    private void addRow(String text, Color color) {
+    private void addRow(String text, Color color, boolean isVisible) {
         VBox wrap = new VBox(6);
         HBox row = new HBox(8); row.setAlignment(Pos.CENTER_LEFT);
 
@@ -77,7 +77,9 @@ public class DraggablePolarEquationPanel extends VBox {
         tf.setPromptText("1 - sin(t)");
         HBox.setHgrow(tf, Priority.ALWAYS);
 
-        Button eye = new Button("👁");
+        Button eye = new Button(isVisible ? "👁" : "🚫");
+        eye.setOpacity(isVisible ? 1.0 : 0.6);
+
         Button del = new Button("✕");
         row.getChildren().addAll(picker, tf, eye, del);
 
@@ -86,12 +88,21 @@ public class DraggablePolarEquationPanel extends VBox {
         rowsBox.getChildren().add(wrap);
 
         PlotPolarEquation eq = new PlotPolarEquation(tf.getText(), picker.getValue());
+        eq.setVisible(isVisible); // Apply the hidden state
         eqByRow.put(wrap, eq);
+
         rebuildParamsUI(paramsBox, eq);
 
         tf.textProperty().addListener((o,a,b)->{ eq.setRawText(b); rebuildParamsUI(paramsBox, eq); pushUpdate(); });
         picker.valueProperty().addListener((o,a,b)->{ eq.setColor(b); pushUpdate(); });
-        eye.setOnAction(e -> { eq.setVisible(!eq.isVisible()); eye.setText(eq.isVisible() ? "👁" : "🚫"); eye.setOpacity(eq.isVisible() ? 1 : 0.6); pushUpdate(); });
+
+        eye.setOnAction(e -> {
+            eq.setVisible(!eq.isVisible());
+            eye.setText(eq.isVisible() ? "👁" : "🚫");
+            eye.setOpacity(eq.isVisible() ? 1 : 0.6);
+            pushUpdate();
+        });
+
         del.setOnAction(e->{ eqByRow.remove(wrap); rowsBox.getChildren().remove(wrap); pushUpdate(); });
 
         pushUpdate();
@@ -109,15 +120,13 @@ public class DraggablePolarEquationPanel extends VBox {
         Slider s = new Slider(-10, 10, eq.getParam(name, 1)); s.setPrefWidth(160);
         Label val = new Label(String.format("%.2f", s.getValue())); val.setMinWidth(50);
 
-        // --- BULLETPROOF FIX: Handles Enter Key AND Clicking Away ---
         Runnable updateMin = () -> {
             try {
                 double newMin = Double.parseDouble(minField.getText());
                 s.setMin(newMin);
-                // Ensure the slider dot doesn't get stuck outside the new range
                 if (s.getValue() < newMin) s.setValue(newMin);
             } catch (NumberFormatException ex) {
-                minField.setText(String.valueOf(s.getMin())); // Revert if invalid input
+                minField.setText(String.valueOf(s.getMin()));
             }
         };
 
@@ -125,25 +134,21 @@ public class DraggablePolarEquationPanel extends VBox {
             try {
                 double newMax = Double.parseDouble(maxField.getText());
                 s.setMax(newMax);
-                // Ensure the slider dot doesn't get stuck outside the new range
                 if (s.getValue() > newMax) s.setValue(newMax);
             } catch (NumberFormatException ex) {
-                maxField.setText(String.valueOf(s.getMax())); // Revert if invalid input
+                maxField.setText(String.valueOf(s.getMax()));
             }
         };
 
-        // 1. Triggers when you press Enter
         minField.setOnAction(e -> updateMin.run());
         maxField.setOnAction(e -> updateMax.run());
 
-        // 2. Triggers when you click away from the text box
         minField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
             if (!isNowFocused) updateMin.run();
         });
         maxField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
             if (!isNowFocused) updateMax.run();
         });
-        // ------------------------------------------------------------
 
         Button play = new Button("▶");
         final double[] dir = {1};

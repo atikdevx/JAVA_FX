@@ -18,16 +18,19 @@ public class GraphCanvas extends Canvas {
     // ---------- Equations ----------
     private final List<PlotEquation> equations = new ArrayList<>();
     private boolean fastRenderMode = false;
-    private boolean isDarkMode=false;
+    private boolean isDarkMode = false;
+
     public void setEquations(List<PlotEquation> eqs) {
         equations.clear();
         if (eqs != null) equations.addAll(eqs);
         draw();
     }
-    public void setDarkMode(boolean isDark){
-        this.isDarkMode=isDark;
+
+    public void setDarkMode(boolean isDark) {
+        this.isDarkMode = isDark;
         draw();
     }
+
     public void setEquationsFast(List<PlotEquation> eqs) {
         fastRenderMode = true;
         equations.clear();
@@ -98,7 +101,9 @@ public class GraphCanvas extends Canvas {
     }
 
     @Override
-    public boolean isResizable() { return true; }
+    public boolean isResizable() {
+        return true;
+    }
 
     @Override
     public void resize(double w, double h) {
@@ -203,9 +208,9 @@ public class GraphCanvas extends Canvas {
         g.setFont(Font.font("Arial", 12));
 
         long startX = (long) Math.ceil(xVisMin / majorStep);
-        long endX   = (long) Math.floor(xVisMax / majorStep);
+        long endX = (long) Math.floor(xVisMax / majorStep);
         long startY = (long) Math.ceil(yVisMin / majorStep);
-        long endY   = (long) Math.floor(yVisMax / majorStep);
+        long endY = (long) Math.floor(yVisMax / majorStep);
 
         for (long i = startX; i <= endX; i++) {
             double val = i * majorStep;
@@ -221,6 +226,7 @@ public class GraphCanvas extends Canvas {
             g.fillText(formatNumber(val), yAxisX + 8, py + 4);
         }
         g.fillText("0", yAxisX - 12, xAxisY + 16);
+
         // Plot Equations
         g.setLineWidth(2.2);
         for (PlotEquation eq : equations) {
@@ -231,12 +237,13 @@ public class GraphCanvas extends Canvas {
             if (eq.isPoint()) {
                 plotPoint(g, eq);
             } else if (!eq.isImplicit()) {
-                plotExplicit(g, eq,halfWUnits,halfHUnits);
+                plotExplicit(g, eq, halfWUnits);
             } else {
                 plotImplicitSmooth(g, eq, halfWUnits, halfHUnits);
             }
         }
     }
+
     private void drawGridLines(GraphicsContext g, double step,
                                double xMin, double xMax,
                                double yMin, double yMax,
@@ -255,7 +262,7 @@ public class GraphCanvas extends Canvas {
 
     private String formatNumber(double val) {
         if (Math.abs(val - Math.round(val)) < 1e-9) {
-            return String.valueOf((long)Math.round(val));
+            return String.valueOf((long) Math.round(val));
         }
         return String.format("%.2f", val);
     }
@@ -267,164 +274,77 @@ public class GraphCanvas extends Canvas {
 
         // Draw Dot
         double r = 5.0; // radius
-        g.fillOval(px - r, py - r, r*2, r*2);
+        g.fillOval(px - r, py - r, r * 2, r * 2);
 
         // Draw Label if enabled
         if (eq.isLabelVisible()) {
             g.setFont(Font.font("Arial", FontWeight.BOLD, 12));
-            g.setFill(Color.BLACK); // Label color
+            g.setFill(isDarkMode ? Color.WHITE : Color.BLACK);
             String label = String.format("(%s, %s)",
                     formatNumber(eq.getPointX()),
                     formatNumber(eq.getPointY()));
             g.fillText(label, px + 8, py - 8);
         }
     }
-// ---------- Explicit plot ----------
-    private void plotExplicit(GraphicsContext g, PlotEquation eq, double halfWUnits, double halfHUnits) {
+
+    // ---------- Explicit plot ----------
+    private void plotExplicit(GraphicsContext g, PlotEquation eq, double halfWUnits) {
         double xMinPlot = xCenter - halfWUnits;
         double xMaxPlot = xCenter + halfWUnits;
-        double yMinPlot = yCenter - halfHUnits;
-        double yMaxPlot = yCenter + halfHUnits;
 
-        // Render slightly off-screen to prevent jagged path breaks at the top/bottom
-        double overdrawMargin = (yMaxPlot - yMinPlot) * 0.1;
-
+        // Step by 1 pixel at a time in world units
         double step = 1.0 / unitPx;
         if (fastRenderMode) step *= 2.0;
 
+        double h = getHeight();
+        // Safe Y bounds so JavaFX doesn't crash on extremely large off-screen paths
+        double safeMinY = -h;
+        double safeMaxY = h * 2;
+
         boolean penDown = false;
-        double prevY = Double.NaN;
-        double prevX = Double.NaN;
+        double prevScreenY = Double.NaN;
+
+        g.beginPath();
 
         for (double x = xMinPlot; x <= xMaxPlot; x += step) {
             double y = eq.evalExplicit(x);
 
-            // ---- 1. Handle NaN / Undefined (Domain boundary or Log Asymptote) ----
             if (bad(y)) {
-                if (penDown) {
-                    // Valid -> NaN. Find exact boundary via binary search.
-                    double left = prevX;
-                    double right = x;
-                    double edgeX = prevX;
-                    double edgeY = prevY;
-
-                    for (int k = 0; k < 20; k++) {
-                        double mid = (left + right) / 2.0;
-                        double midY = eq.evalExplicit(mid);
-                        if (bad(midY)) right = mid;
-                        else {
-                            left = mid;
-                            edgeX = mid;
-                            edgeY = midY;
-                        }
-                    }
-
-                    // Calculus Derivative Test: Is it a vertical asymptote like ln(x)?
-                    double testY = eq.evalExplicit(edgeX - (step * 0.05));
-                    if (!bad(testY)) {
-                        double slope = Math.abs((edgeY - testY) / (step * 0.05));
-                        if (slope > 150.0) { // Plunging to infinity
-                            edgeY = (edgeY < prevY) ? yMinPlot - overdrawMargin : yMaxPlot + overdrawMargin;
-                        }
-                    }
-
-                    g.lineTo(wxToPx(edgeX), wyToPy(edgeY));
-                    g.stroke();
-                    penDown = false;
-                }
-                prevX = x;
-                prevY = y;
+                penDown = false;
                 continue;
             }
 
-            // ---- 2. Handle Valid Y ----
-            double clampedY = y;
-            if (y < yMinPlot - overdrawMargin) clampedY = yMinPlot - overdrawMargin;
-            else if (y > yMaxPlot + overdrawMargin) clampedY = yMaxPlot + overdrawMargin;
+            double screenX = wxToPx(x);
+            double trueScreenY = wyToPy(y);
+
+            // Clamp screen Y to visually safe bounds
+            double clampedScreenY = Math.max(safeMinY, Math.min(safeMaxY, trueScreenY));
 
             if (!penDown) {
-                g.beginPath();
-                // Transition: NaN -> Valid
-                if (bad(prevY) && !Double.isNaN(prevX)) {
-                    double left = prevX;
-                    double right = x;
-                    double edgeX = x;
-                    double edgeY = y;
-
-                    for (int k = 0; k < 20; k++) {
-                        double mid = (left + right) / 2.0;
-                        double midY = eq.evalExplicit(mid);
-                        if (bad(midY)) left = mid;
-                        else {
-                            right = mid;
-                            edgeX = mid;
-                            edgeY = midY;
-                        }
-                    }
-
-                    // Calculus Derivative Test: Is it a vertical asymptote like ln(x)?
-                    double testY = eq.evalExplicit(edgeX + (step * 0.05));
-                    if (!bad(testY)) {
-                        double slope = Math.abs((testY - edgeY) / (step * 0.05));
-                        if (slope > 150.0) { // Plunging to infinity
-                            edgeY = (edgeY < y) ? yMinPlot - overdrawMargin : yMaxPlot + overdrawMargin;
-                        }
-                    }
-
-                    g.moveTo(wxToPx(edgeX), wyToPy(edgeY));
-                    g.lineTo(wxToPx(x), wyToPy(clampedY));
-                } else {
-                    g.moveTo(wxToPx(x), wyToPy(clampedY));
-                }
+                g.moveTo(screenX, clampedScreenY);
                 penDown = true;
             } else {
-                // ---- 3. Catch Valid -> Valid jumps across asymptotes (tan(x), 1/x) ----
-                boolean isAsymptote = false;
-                double pixelJump = Math.abs(y - prevY) * unitPx;
-
-                // A. Zoomed-in check: Extreme visual jump
-                if (pixelJump > 200.0) {
-                    double midX = (prevX + x) / 2.0;
-                    double midY = eq.evalExplicit(midX);
-                    if (bad(midY) || Math.abs(midY) > Math.max(Math.abs(prevY), Math.abs(y))) {
-                        isAsymptote = true;
-                    }
+                // THE ASYMPTOTE FIX:
+                // If the vertical jump in a single horizontal pixel is greater than the height
+                // of the canvas itself, we crossed an asymptote. Pick up the pen!
+                if (!Double.isNaN(prevScreenY) && Math.abs(trueScreenY - prevScreenY) > h) {
+                    g.moveTo(screenX, clampedScreenY); // Existing Asymptote Fix
                 }
-                // B. Zoomed-out check: Sign change with diverging midpoint (tan(x))
-                else if (y * prevY < 0) {
-                    double midX = (prevX + x) / 2.0;
-                    double midY = eq.evalExplicit(midX);
-                    if (bad(midY) || Math.abs(midY) > Math.max(Math.abs(prevY), Math.abs(y)) * 2.0) {
-                        isAsymptote = true;
-                    }
+                // NEW: Detect step-function jumps (if Y jumps mathematically by ~1.0 in a single pixel)
+                else if (!Double.isNaN(prevScreenY) && Math.abs(y - eq.evalExplicit(x - step)) >= 0.9) {
+                    g.moveTo(screenX, clampedScreenY); // Pick up pen to break the step
                 }
-                // C. Zoomed-out check: Same sign, massive midpoint divergence (1/x^2)
-                else if (Math.abs(y - prevY) > (yMaxPlot - yMinPlot) * 0.1) {
-                    double midX = (prevX + x) / 2.0;
-                    double midY = eq.evalExplicit(midX);
-                    if (bad(midY) || Math.abs(midY) > Math.max(Math.abs(prevY), Math.abs(y)) * 3.0) {
-                        isAsymptote = true;
-                    }
-                }
-
-                if (isAsymptote) {
-                    // Shoot to infinity, break line, come from negative infinity
-                    g.lineTo(wxToPx(prevX), wyToPy(prevY > y ? yMaxPlot + overdrawMargin : yMinPlot - overdrawMargin));
-                    g.stroke();
-                    g.beginPath();
-                    g.moveTo(wxToPx(x), wyToPy(y > prevY ? yMaxPlot + overdrawMargin : yMinPlot - overdrawMargin));
-                    g.lineTo(wxToPx(x), wyToPy(clampedY));
-                } else {
-                    g.lineTo(wxToPx(x), wyToPy(clampedY));
+                else {
+                    g.lineTo(screenX, clampedScreenY);
                 }
             }
 
-            prevX = x;
-            prevY = y;
+            prevScreenY = trueScreenY;
         }
 
-        if (penDown) g.stroke();
+        g.stroke();
     }
+
     // ---------- Implicit plot ----------
     private void plotImplicitSmooth(GraphicsContext g, PlotEquation eq, double halfWUnits, double halfHUnits) {
         double xMinPlot = xCenter - halfWUnits;
@@ -451,9 +371,9 @@ public class GraphCanvas extends Canvas {
         for (int i = 0; i < xSteps - 1; i++) {
             for (int j = 0; j < ySteps - 1; j++) {
                 double f00 = grid[i][j];
-                double f10 = grid[i+1][j];
-                double f01 = grid[i][j+1];
-                double f11 = grid[i+1][j+1];
+                double f10 = grid[i + 1][j];
+                double f01 = grid[i][j + 1];
+                double f11 = grid[i + 1][j + 1];
 
                 if (bad(f00) || bad(f10) || bad(f11) || bad(f01)) continue;
 
@@ -464,15 +384,27 @@ public class GraphCanvas extends Canvas {
 
                 int count = 0;
                 double[] p0 = null, p1 = null, p2 = null, p3 = null;
-                if ((f00 > 0) != (f10 > 0)) { p0 = new double[]{interp(x0, x1, f00, f10), y0}; count++; }
-                if ((f10 > 0) != (f11 > 0)) { p1 = new double[]{x1, interp(y0, y1, f10, f11)}; count++; }
-                if ((f01 > 0) != (f11 > 0)) { p2 = new double[]{interp(x0, x1, f01, f11), y1}; count++; }
-                if ((f00 > 0) != (f01 > 0)) { p3 = new double[]{x0, interp(y0, y1, f00, f01)}; count++; }
+                if ((f00 > 0) != (f10 > 0)) {
+                    p0 = new double[]{interp(x0, x1, f00, f10), y0};
+                    count++;
+                }
+                if ((f10 > 0) != (f11 > 0)) {
+                    p1 = new double[]{x1, interp(y0, y1, f10, f11)};
+                    count++;
+                }
+                if ((f01 > 0) != (f11 > 0)) {
+                    p2 = new double[]{interp(x0, x1, f01, f11), y1};
+                    count++;
+                }
+                if ((f00 > 0) != (f01 > 0)) {
+                    p3 = new double[]{x0, interp(y0, y1, f00, f01)};
+                    count++;
+                }
 
                 if (count == 2) {
                     double[] a = firstNonNull(p0, p1, p2, p3);
                     double[] b = secondNonNull(p0, p1, p2, p3);
-                    if(a!=null && b!=null) drawWorldLine(g, a[0], a[1], b[0], b[1]);
+                    if (a != null && b != null) drawWorldLine(g, a[0], a[1], b[0], b[1]);
                 } else if (count == 4) {
                     double fc = eq.evalImplicit((x0 + x1) / 2.0, (y0 + y1) / 2.0);
                     if (!bad(fc)) {
@@ -493,11 +425,15 @@ public class GraphCanvas extends Canvas {
         for (double[] a : arr) if (a != null) return a;
         return null;
     }
+
     private double[] secondNonNull(double[]... arr) {
         boolean found = false;
         for (double[] a : arr) {
             if (a == null) continue;
-            if (!found) { found = true; continue; }
+            if (!found) {
+                found = true;
+                continue;
+            }
             return a;
         }
         return null;
