@@ -312,13 +312,527 @@ public class DraggableEquationPanel extends VBox {
         return c[(int)(Math.random()*c.length)];
     }
 }
+//package com.equationplotter.ui;
+//
+//import javafx.animation.Animation;
+//import javafx.animation.KeyFrame;
+//import javafx.animation.PauseTransition;
+//import javafx.animation.Timeline;
+//import javafx.geometry.Insets;
+//import javafx.geometry.Pos;
+//import javafx.scene.Cursor;
+//import javafx.scene.control.*;
+//import javafx.scene.layout.*;
+//import javafx.scene.paint.Color;
+//import javafx.util.Duration;
+//
+//import java.util.*;
+//import java.util.function.BiConsumer;
 
-
-
-
-
-
-
-
-
-
+//public class DraggableEquationPanel extends VBox {
+//
+//    private double dragOffsetX, dragOffsetY;
+//    private final VBox rowsBox = new VBox(10);
+//    private final Button addBtn = new Button("+ Add equation");
+//    private final HBox header = new HBox(10);
+//    private final Button minBtn = new Button("▾");
+//    private boolean minimized = false;
+//
+//    private static final double EXPANDED_W = 420;
+//    private static final double MIN_W = 180;
+//
+//    private final BiConsumer<List<PlotEquation>, Boolean> onChange;
+//    private final Map<VBox, PlotEquation> eqByRow = new HashMap<>();
+//
+//    public DraggableEquationPanel(BiConsumer<List<PlotEquation>, Boolean> onChange) {
+//        this.onChange = onChange;
+//
+//        setPrefWidth(EXPANDED_W);
+//        setSpacing(10);
+//        setPadding(new Insets(12));
+//        setStyleExpanded();
+//
+//        header.setAlignment(Pos.CENTER_LEFT);
+//        header.setPadding(new Insets(9, 12, 9, 12));
+//        header.setCursor(Cursor.MOVE);
+//
+//        Label title = new Label("Equations");
+//        title.setStyle("-fx-font-weight: 700; -fx-font-size: 14px;");
+//
+//        Region spacer = new Region();
+//        HBox.setHgrow(spacer, Priority.ALWAYS);
+//        header.getChildren().addAll(title, spacer, minBtn);
+//
+//        header.setOnMousePressed(e -> {
+//            dragOffsetX = e.getX();
+//            dragOffsetY = e.getY();
+//        });
+//        header.setOnMouseDragged(e -> relocate(
+//                getLayoutX() + (e.getX() - dragOffsetX),
+//                getLayoutY() + (e.getY() - dragOffsetY)
+//        ));
+//
+//        addBtn.setMaxWidth(Double.MAX_VALUE);
+//        addBtn.setOnAction(e -> addRow("", randomColor()));
+//        minBtn.setOnAction(e -> toggleMinimize());
+//
+//        getChildren().addAll(header, addBtn, rowsBox);
+//
+//        // Default starting equation
+//        addRow("x^(2/3) + (e/3)*(3.1416-x^2)^(0.5)*sin(3.1416*x*a) = y", randomColor());
+//        pushUpdate();
+//    }
+//
+//    private void toggleMinimize() {
+//        minimized = !minimized;
+//        if (minimized) {
+//            minBtn.setText("▸");
+//            getChildren().setAll(header);
+//            setPrefWidth(MIN_W);
+//        } else {
+//            minBtn.setText("▾");
+//            getChildren().setAll(header, addBtn, rowsBox);
+//            setPrefWidth(EXPANDED_W);
+//        }
+//    }
+//
+//    private void setStyleExpanded() {
+//        setStyle("-fx-background-color: rgba(255,255,255,0.92); " +
+//                "-fx-background-radius: 14; -fx-border-color: rgba(0,0,0,0.10); " +
+//                "-fx-border-radius: 14; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.10), 18, 0.2, 0, 6);");
+//    }
+//
+//    private void addRow(String text, Color color) {
+//        VBox wrap = new VBox(6);
+//        HBox row = new HBox(8);
+//        row.setAlignment(Pos.CENTER_LEFT);
+//
+//        ColorPicker picker = new ColorPicker(color);
+//        picker.setStyle("-fx-color-label-visible: false; -fx-pref-width: 40px;");
+//
+//        TextField tf = new TextField(text);
+//        tf.setPromptText("y=mx+c or (t, sint)");
+//        HBox.setHgrow(tf, Priority.ALWAYS);
+//
+//        Button eye = new Button("👁");
+//        Button labelBtn = new Button("Aa");
+//        labelBtn.setOpacity(0.5);
+//        Button del = new Button("✕");
+//
+//        row.getChildren().addAll(picker, tf, eye, labelBtn, del);
+//
+//        VBox paramsBox = new VBox(6);
+//        wrap.getChildren().addAll(row, paramsBox);
+//        rowsBox.getChildren().add(wrap);
+//
+//        PlotEquation eq = new PlotEquation(tf.getText(), picker.getValue());
+//        eqByRow.put(wrap, eq);
+//
+//        rebuildParamsUI(paramsBox, eq);
+//
+//        Runnable updateLabelBtn = () -> {
+//            boolean isPointOrPath = eq.isPoint() || eq.isPath();
+//            labelBtn.setDisable(!isPointOrPath);
+//            labelBtn.setOpacity(isPointOrPath ? (eq.isLabelVisible() ? 1.0 : 0.5) : 0.3);
+//            labelBtn.setStyle(eq.isLabelVisible() ? "-fx-background-color: #ddd;" : "");
+//        };
+//        updateLabelBtn.run();
+//
+//        PauseTransition typingDelay = new PauseTransition(Duration.millis(400));
+//        typingDelay.setOnFinished(event -> {
+//            eq.setRawText(tf.getText());
+//            rebuildParamsUI(paramsBox, eq);
+//            updateLabelBtn.run();
+//            pushUpdate();
+//        });
+//
+//        tf.textProperty().addListener((o, oldT, newT) -> typingDelay.playFromStart());
+//        picker.valueProperty().addListener((o, a, b) -> { eq.setColor(b); pushUpdate(); });
+//
+//        eye.setOnAction(e -> {
+//            eq.setVisible(!eq.isVisible());
+//            eye.setText(eq.isVisible() ? "👁" : "🚫");
+//            eye.setOpacity(eq.isVisible() ? 1.0 : 0.6);
+//            pushUpdate();
+//        });
+//
+//        labelBtn.setOnAction(e -> {
+//            eq.setLabelVisible(!eq.isLabelVisible());
+//            updateLabelBtn.run();
+//            pushUpdate();
+//        });
+//
+//        del.setOnAction(e -> {
+//            eqByRow.remove(wrap);
+//            rowsBox.getChildren().remove(wrap);
+//            pushUpdate();
+//        });
+//
+//        pushUpdate();
+//    }
+//
+//    private void rebuildParamsUI(VBox box, PlotEquation eq) {
+//        box.getChildren().clear();
+//
+//        // 1. Standard parameters (a, b, c...)
+//        for (String p : eq.getParamNames()) {
+//            box.getChildren().add(buildParamRow(eq, p, false));
+//        }
+//
+//        // 2. FIX: Explicitly add 't' slider if it's a parametric path
+//        if (eq.isPath()) {
+//            box.getChildren().add(buildParamRow(eq, "t", true));
+//        }
+//    }
+//
+//    private HBox buildParamRow(PlotEquation eq, String name, boolean isPathT) {
+//        Label lbl = new Label(name + " =");
+//
+//        // For 't', we use TMin as the current value of the point
+//        double initialVal = isPathT ? eq.getCurrentT() : eq.getParam(name, 1.0);
+//
+//        TextField minField = new TextField(String.valueOf(isPathT ? eq.getTMin() : -10.0));
+//        TextField maxField = new TextField(String.valueOf(isPathT ? eq.getTMax() : 10.0));
+//        minField.setPrefWidth(45);
+//        maxField.setPrefWidth(45);
+//
+//        Slider s = new Slider(isPathT ? eq.getTMin() : -10.0, isPathT ? eq.getTMax() : 10.0, initialVal);
+//        s.setPrefWidth(160);
+//
+//        Label valLabel = new Label(String.format("%.2f", s.getValue()));
+//        valLabel.setMinWidth(50);
+//
+//        Button play = new Button("▶");
+//        final double[] dir = {1};
+//        Timeline tl = new Timeline(new KeyFrame(Duration.millis(16), e -> {
+//            double v = s.getValue(), min = s.getMin(), max = s.getMax();
+//            double step = (max - min) * 0.002;
+//            double nv = v + step * dir[0];
+//            if (nv >= max) { nv = max; dir[0] = -1; }
+//            else if (nv <= min) { nv = min; dir[0] = 1; }
+//            s.setValue(nv);
+//        }));
+//        tl.setCycleCount(Animation.INDEFINITE);
+//
+//        play.setOnAction(e -> {
+//            if (tl.getStatus() == Animation.Status.RUNNING) {
+//                tl.stop(); play.setText("▶"); pushUpdate(false);
+//            } else {
+//                tl.play(); play.setText("⏸");
+//            }
+//        });
+//
+//        s.valueProperty().addListener((o, a, b) -> {
+//            double v = b.doubleValue();
+//            valLabel.setText(String.format("%.2f", v));
+//            if (isPathT) {
+//                eq.setCurrentT(v); // Moving t updates the point's position on the curve
+//            } else {
+//                eq.setParam(name, v);
+//            }
+//            pushUpdate(s.isValueChanging() || tl.getStatus() == Animation.Status.RUNNING);
+//        });
+//
+//        s.setOnMouseReleased(e -> pushUpdate(false));
+//
+//        Runnable updateRange = () -> {
+//            try {
+//                double min = Double.parseDouble(minField.getText());
+//                double max = Double.parseDouble(maxField.getText());
+//                if (min < max) {
+//                    s.setMin(min); s.setMax(max);
+//                    if (isPathT) {
+//                        eq.setTMin(min);
+//                        eq.setTMax(max); // Update curve bounds
+//                        eq.setCurrentT(Math.max(min, Math.min(max, s.getValue())));
+//                    }
+//                }
+//            } catch (Exception ignored) {}
+//        };
+//        minField.setOnAction(e -> updateRange.run());
+//        maxField.setOnAction(e -> updateRange.run());
+//
+//        HBox row = new HBox(6, lbl, minField, s, maxField, valLabel, play);
+//        row.setAlignment(Pos.CENTER_LEFT);
+//        row.setPadding(new Insets(4, 8, 4, 8));
+//        row.setStyle("-fx-background-color: rgba(0,0,0,0.05); -fx-background-radius: 8;");
+//
+//        return row;
+//    }
+//
+//    private void pushUpdate() { pushUpdate(false); }
+//
+//    private void pushUpdate(boolean isFast) {
+//        if (onChange == null) return;
+//        List<PlotEquation> list = new ArrayList<>();
+//        for (PlotEquation e : eqByRow.values()) {
+//            if (e.getRawText() != null && !e.getRawText().isBlank()) list.add(e);
+//        }
+//        onChange.accept(list, isFast);
+//    }
+//
+//    private Color randomColor() {
+//        Color[] colors = {Color.BLUE, Color.RED, Color.GREEN, Color.ORANGE, Color.PURPLE, Color.MAGENTA};
+//        return colors[(int)(Math.random() * colors.length)];
+//    }
+//}
+//package com.equationplotter.ui;
+//
+//import javafx.animation.Animation;
+//import javafx.animation.KeyFrame;
+//import javafx.animation.PauseTransition;
+//import javafx.animation.Timeline;
+//import javafx.geometry.Insets;
+//import javafx.geometry.Pos;
+//import javafx.scene.Cursor;
+//import javafx.scene.control.*;
+//import javafx.scene.layout.*;
+//import javafx.scene.paint.Color;
+//import javafx.util.Duration;
+//
+//import java.util.*;
+//import java.util.function.BiConsumer;
+//
+//public class DraggableEquationPanel extends VBox {
+//
+//    private double dragOffsetX, dragOffsetY;
+//    private final VBox rowsBox = new VBox(10);
+//    private final Button addBtn = new Button("+ Add equation");
+//    private final HBox header = new HBox(10);
+//    private final Button minBtn = new Button("▾");
+//    private boolean minimized = false;
+//
+//    private static final double EXPANDED_W = 420;
+//    private static final double MIN_W = 180;
+//
+//    private final BiConsumer<List<PlotEquation>, Boolean> onChange;
+//    private final Map<VBox, PlotEquation> eqByRow = new HashMap<>();
+//
+//    public DraggableEquationPanel(BiConsumer<List<PlotEquation>, Boolean> onChange) {
+//        this.onChange = onChange;
+//
+//        setPrefWidth(EXPANDED_W);
+//        setSpacing(10);
+//        setPadding(new Insets(12));
+//        setStyleExpanded();
+//
+//        header.setAlignment(Pos.CENTER_LEFT);
+//        header.setPadding(new Insets(9, 12, 9, 12));
+//        header.setCursor(Cursor.MOVE);
+//
+//        Label title = new Label("Equations");
+//        title.setStyle("-fx-font-weight: 700; -fx-font-size: 14px;");
+//
+//        Region spacer = new Region();
+//        HBox.setHgrow(spacer, Priority.ALWAYS);
+//        header.getChildren().addAll(title, spacer, minBtn);
+//
+//        header.setOnMousePressed(e -> {
+//            dragOffsetX = e.getX();
+//            dragOffsetY = e.getY();
+//        });
+//        header.setOnMouseDragged(e -> relocate(
+//                getLayoutX() + (e.getX() - dragOffsetX),
+//                getLayoutY() + (e.getY() - dragOffsetY)
+//        ));
+//
+//        addBtn.setMaxWidth(Double.MAX_VALUE);
+//        addBtn.setOnAction(e -> addRow("", randomColor()));
+//        minBtn.setOnAction(e -> toggleMinimize());
+//
+//        getChildren().addAll(header, addBtn, rowsBox);
+//
+//        // Default starting equation
+//        addRow("x^(2/3) + (e/3)*(3.1416-x^2)^(0.5)*sin(3.1416*x*a) = y", randomColor());
+//        pushUpdate();
+//    }
+//
+//    private void toggleMinimize() {
+//        minimized = !minimized;
+//        if (minimized) {
+//            minBtn.setText("▸");
+//            getChildren().setAll(header);
+//            setPrefWidth(MIN_W);
+//        } else {
+//            minBtn.setText("▾");
+//            getChildren().setAll(header, addBtn, rowsBox);
+//            setPrefWidth(EXPANDED_W);
+//        }
+//    }
+//
+//    private void setStyleExpanded() {
+//        setStyle("-fx-background-color: rgba(255,255,255,0.92); " +
+//                "-fx-background-radius: 14; -fx-border-color: rgba(0,0,0,0.10); " +
+//                "-fx-border-radius: 14; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.10), 18, 0.2, 0, 6);");
+//    }
+//
+//    private void addRow(String text, Color color) {
+//        VBox wrap = new VBox(6);
+//        HBox row = new HBox(8);
+//        row.setAlignment(Pos.CENTER_LEFT);
+//
+//        ColorPicker picker = new ColorPicker(color);
+//        picker.setStyle("-fx-color-label-visible: false; -fx-pref-width: 40px;");
+//
+//        TextField tf = new TextField(text);
+//        tf.setPromptText("y=mx+c or (t, sint)");
+//        HBox.setHgrow(tf, Priority.ALWAYS);
+//
+//        Button eye = new Button("👁");
+//        Button labelBtn = new Button("Aa");
+//        labelBtn.setOpacity(0.5);
+//        Button del = new Button("✕");
+//
+//        row.getChildren().addAll(picker, tf, eye, labelBtn, del);
+//
+//        VBox paramsBox = new VBox(6);
+//        wrap.getChildren().addAll(row, paramsBox);
+//        rowsBox.getChildren().add(wrap);
+//
+//        PlotEquation eq = new PlotEquation(tf.getText(), picker.getValue());
+//        eqByRow.put(wrap, eq);
+//
+//        rebuildParamsUI(paramsBox, eq);
+//
+//        Runnable updateLabelBtn = () -> {
+//            boolean isPointOrPath = eq.isPoint() || eq.isPath();
+//            labelBtn.setDisable(!isPointOrPath);
+//            labelBtn.setOpacity(isPointOrPath ? (eq.isLabelVisible() ? 1.0 : 0.5) : 0.3);
+//            labelBtn.setStyle(eq.isLabelVisible() ? "-fx-background-color: #ddd;" : "");
+//        };
+//        updateLabelBtn.run();
+//
+//        PauseTransition typingDelay = new PauseTransition(Duration.millis(400));
+//        typingDelay.setOnFinished(event -> {
+//            eq.setRawText(tf.getText());
+//            rebuildParamsUI(paramsBox, eq);
+//            updateLabelBtn.run();
+//            pushUpdate();
+//        });
+//
+//        tf.textProperty().addListener((o, oldT, newT) -> typingDelay.playFromStart());
+//        picker.valueProperty().addListener((o, a, b) -> { eq.setColor(b); pushUpdate(); });
+//
+//        eye.setOnAction(e -> {
+//            eq.setVisible(!eq.isVisible());
+//            eye.setText(eq.isVisible() ? "👁" : "🚫");
+//            eye.setOpacity(eq.isVisible() ? 1.0 : 0.6);
+//            pushUpdate();
+//        });
+//
+//        labelBtn.setOnAction(e -> {
+//            eq.setLabelVisible(!eq.isLabelVisible());
+//            updateLabelBtn.run();
+//            pushUpdate();
+//        });
+//
+//        del.setOnAction(e -> {
+//            eqByRow.remove(wrap);
+//            rowsBox.getChildren().remove(wrap);
+//            pushUpdate();
+//        });
+//
+//        pushUpdate();
+//    }
+//
+//    private void rebuildParamsUI(VBox box, PlotEquation eq) {
+//        box.getChildren().clear();
+//
+//        // 1. Standard parameters (a, b, c...)
+//        for (String p : eq.getParamNames()) {
+//            box.getChildren().add(buildParamRow(eq, p, false));
+//        }
+//
+//        // 2. FIX: Explicitly add 't' slider if it's a parametric path
+//        if (eq.isPath()) {
+//            box.getChildren().add(buildParamRow(eq, "t", true));
+//        }
+//    }
+//
+//    private HBox buildParamRow(PlotEquation eq, String name, boolean isPathT) {
+//        Label lbl = new Label(name + " =");
+//
+//        // For 't', we use TMin as the current value of the point
+//        double initialVal = isPathT ? eq.getTMin() : eq.getParam(name, 1.0);
+//
+//        TextField minField = new TextField("-10");
+//        TextField maxField = new TextField("10");
+//        minField.setPrefWidth(45);
+//        maxField.setPrefWidth(45);
+//
+//        Slider s = new Slider(-10, 10, initialVal);
+//        s.setPrefWidth(160);
+//
+//        Label valLabel = new Label(String.format("%.2f", s.getValue()));
+//        valLabel.setMinWidth(50);
+//
+//        Button play = new Button("▶");
+//        final double[] dir = {1};
+//        Timeline tl = new Timeline(new KeyFrame(Duration.millis(16), e -> {
+//            double v = s.getValue(), min = s.getMin(), max = s.getMax();
+//            double step = (max - min) * 0.002;
+//            double nv = v + step * dir[0];
+//            if (nv >= max) { nv = max; dir[0] = -1; }
+//            else if (nv <= min) { nv = min; dir[0] = 1; }
+//            s.setValue(nv);
+//        }));
+//        tl.setCycleCount(Animation.INDEFINITE);
+//
+//        play.setOnAction(e -> {
+//            if (tl.getStatus() == Animation.Status.RUNNING) {
+//                tl.stop(); play.setText("▶"); pushUpdate(false);
+//            } else {
+//                tl.play(); play.setText("⏸");
+//            }
+//        });
+//
+//        s.valueProperty().addListener((o, a, b) -> {
+//            double v = b.doubleValue();
+//            valLabel.setText(String.format("%.2f", v));
+//            if (isPathT) {
+//                eq.setTMin(v); // Moving t updates the point's position on the curve
+//            } else {
+//                eq.setParam(name, v);
+//            }
+//            pushUpdate(s.isValueChanging() || tl.getStatus() == Animation.Status.RUNNING);
+//        });
+//
+//        s.setOnMouseReleased(e -> pushUpdate(false));
+//
+//        Runnable updateRange = () -> {
+//            try {
+//                double min = Double.parseDouble(minField.getText());
+//                double max = Double.parseDouble(maxField.getText());
+//                if (min < max) {
+//                    s.setMin(min); s.setMax(max);
+//                    if (isPathT) eq.setTMax(max); // Update curve bounds
+//                }
+//            } catch (Exception ignored) {}
+//        };
+//        minField.setOnAction(e -> updateRange.run());
+//        maxField.setOnAction(e -> updateRange.run());
+//
+//        HBox row = new HBox(6, lbl, minField, s, maxField, valLabel, play);
+//        row.setAlignment(Pos.CENTER_LEFT);
+//        row.setPadding(new Insets(4, 8, 4, 8));
+//        row.setStyle("-fx-background-color: rgba(0,0,0,0.05); -fx-background-radius: 8;");
+//
+//        return row;
+//    }
+//
+//    private void pushUpdate() { pushUpdate(false); }
+//
+//    private void pushUpdate(boolean isFast) {
+//        if (onChange == null) return;
+//        List<PlotEquation> list = new ArrayList<>();
+//        for (PlotEquation e : eqByRow.values()) {
+//            if (e.getRawText() != null && !e.getRawText().isBlank()) list.add(e);
+//        }
+//        onChange.accept(list, isFast);
+//    }
+//
+//    private Color randomColor() {
+//        Color[] colors = {Color.BLUE, Color.RED, Color.GREEN, Color.ORANGE, Color.PURPLE, Color.MAGENTA};
+//        return colors[(int)(Math.random() * colors.length)];
+//    }
+//}

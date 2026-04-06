@@ -113,21 +113,10 @@ public class GraphCanvas extends Canvas {
     }
 
     // ---------- World <-> Pixel ----------
-    private double wxToPx(double x) {
-        return (getWidth() / 2.0) + (x - xCenter) * unitPx;
-    }
-
-    private double wyToPy(double y) {
-        return (getHeight() / 2.0) - (y - yCenter) * unitPx;
-    }
-
-    private double pxToWx(double px) {
-        return (px - getWidth() / 2.0) / unitPx + xCenter;
-    }
-
-    private double pxToWy(double py) {
-        return (getHeight() / 2.0 - py) / unitPx + yCenter;
-    }
+    private double wxToPx(double x) { return (getWidth() / 2.0) + (x - xCenter) * unitPx; }
+    private double wyToPy(double y) { return (getHeight() / 2.0) - (y - yCenter) * unitPx; }
+    private double pxToWx(double px) { return (px - getWidth() / 2.0) / unitPx + xCenter; }
+    private double pxToWy(double py) { return (getHeight() / 2.0 - py) / unitPx + yCenter; }
 
     private void drawWorldLine(GraphicsContext g, double x1, double y1, double x2, double y2) {
         g.strokeLine(wxToPx(x1), wyToPy(y1), wxToPx(x2), wyToPy(y2));
@@ -160,14 +149,12 @@ public class GraphCanvas extends Canvas {
 
         GraphicsContext g = getGraphicsContext2D();
 
-        // --- THEME COLORS ---
         Color bgColor = isDarkMode ? Color.web("#121212") : Color.WHITE;
         Color minorGridColor = isDarkMode ? Color.web("#333333") : Color.web("#eeeeee");
         Color majorGridColor = isDarkMode ? Color.web("#555555") : Color.web("#c9c9c9");
         Color axisColor = isDarkMode ? Color.web("#aaaaaa") : Color.web("#666666");
         Color textColor = isDarkMode ? Color.web("#dddddd") : Color.web("#444444");
 
-        // 1. Clear & Background
         g.setFill(bgColor);
         g.fillRect(0, 0, w, h);
 
@@ -185,17 +172,14 @@ public class GraphCanvas extends Canvas {
         double minorStep = calculateGridStep();
         double majorStep = minorStep * 5.0;
 
-        // Minor Grid
         g.setStroke(minorGridColor);
         g.setLineWidth(1);
         drawGridLines(g, minorStep, xVisMin, xVisMax, yVisMin, yVisMax, w, h);
 
-        // Major Grid
         g.setStroke(majorGridColor);
         g.setLineWidth(1.4);
         drawGridLines(g, majorStep, xVisMin, xVisMax, yVisMin, yVisMax, w, h);
 
-        // Axes
         g.setStroke(axisColor);
         g.setLineWidth(2.6);
         double xAxisY = wyToPy(0);
@@ -203,7 +187,6 @@ public class GraphCanvas extends Canvas {
         if (xAxisY >= 0 && xAxisY <= h) g.strokeLine(0, xAxisY, w, xAxisY);
         if (yAxisX >= 0 && yAxisX <= w) g.strokeLine(yAxisX, 0, yAxisX, h);
 
-        // Numbers
         g.setFill(textColor);
         g.setFont(Font.font("Arial", 12));
 
@@ -215,39 +198,36 @@ public class GraphCanvas extends Canvas {
         for (long i = startX; i <= endX; i++) {
             double val = i * majorStep;
             if (Math.abs(val) < 1e-9) continue;
-            double px = wxToPx(val);
-            g.fillText(formatNumber(val), px - 4, xAxisY + 16);
+            g.fillText(formatNumber(val), wxToPx(val) - 4, xAxisY + 16);
         }
 
         for (long i = startY; i <= endY; i++) {
             double val = i * majorStep;
             if (Math.abs(val) < 1e-9) continue;
-            double py = wyToPy(val);
-            g.fillText(formatNumber(val), yAxisX + 8, py + 4);
+            g.fillText(formatNumber(val), yAxisX + 8, wyToPy(val) + 4);
         }
         g.fillText("0", yAxisX - 12, xAxisY + 16);
 
-        // Plot Equations
+        // Draw Equations
         g.setLineWidth(2.2);
+        int pointCounter = 1;
+
         for (PlotEquation eq : equations) {
             if (eq == null || !eq.isVisible()) continue;
             g.setStroke(eq.getColor() == null ? Color.BLUE : eq.getColor());
             g.setFill(eq.getColor() == null ? Color.BLUE : eq.getColor());
 
             if (eq.isPoint()) {
-                plotPoint(g, eq);
+                plotPoint(g, eq, pointCounter++);
             } else if (!eq.isImplicit()) {
-                plotExplicit(g, eq, halfWUnits);
+                plotExplicit(g, eq, halfWUnits, halfHUnits);
             } else {
                 plotImplicitSmooth(g, eq, halfWUnits, halfHUnits);
             }
         }
     }
 
-    private void drawGridLines(GraphicsContext g, double step,
-                               double xMin, double xMax,
-                               double yMin, double yMax,
-                               double w, double h) {
+    private void drawGridLines(GraphicsContext g, double step, double xMin, double xMax, double yMin, double yMax, double w, double h) {
         double firstX = Math.ceil(xMin / step) * step;
         for (double x = firstX; x <= xMax; x += step) {
             double px = wxToPx(x);
@@ -261,88 +241,154 @@ public class GraphCanvas extends Canvas {
     }
 
     private String formatNumber(double val) {
-        if (Math.abs(val - Math.round(val)) < 1e-9) {
-            return String.valueOf((long) Math.round(val));
-        }
+        if (Math.abs(val - Math.round(val)) < 1e-9) return String.valueOf((long) Math.round(val));
         return String.format("%.2f", val);
     }
 
     // ---------- Points ----------
-    private void plotPoint(GraphicsContext g, PlotEquation eq) {
-        double px = wxToPx(eq.getPointX());
-        double py = wyToPy(eq.getPointY());
+    private void plotPoint(GraphicsContext g, PlotEquation eq, int index) {
+        double px = eq.getPointX();
+        double py = eq.getPointY();
+        if (bad(px) || bad(py)) return;
 
-        // Draw Dot
-        double r = 5.0; // radius
-        g.fillOval(px - r, py - r, r * 2, r * 2);
+        double screenX = wxToPx(px);
+        double screenY = wyToPy(py);
+        double r = 5.0;
 
-        // Draw Label if enabled
+        g.fillOval(screenX - r, screenY - r, r * 2, r * 2);
+
         if (eq.isLabelVisible()) {
             g.setFont(Font.font("Arial", FontWeight.BOLD, 12));
             g.setFill(isDarkMode ? Color.WHITE : Color.BLACK);
-            String label = String.format("(%s, %s)",
-                    formatNumber(eq.getPointX()),
-                    formatNumber(eq.getPointY()));
-            g.fillText(label, px + 8, py - 8);
+            g.fillText(eq.getDynamicLabel(index), screenX + 8, screenY - 8);
         }
     }
 
-    // ---------- Explicit plot ----------
-    private void plotExplicit(GraphicsContext g, PlotEquation eq, double halfWUnits) {
+    // ---------- Explicit plot (Cleaned up) ----------
+    private void plotExplicit(GraphicsContext g, PlotEquation eq, double halfWUnits, double halfHUnits) {
         double xMinPlot = xCenter - halfWUnits;
         double xMaxPlot = xCenter + halfWUnits;
+        double yMinPlot = yCenter - halfHUnits;
+        double yMaxPlot = yCenter + halfHUnits;
 
-        // Step by 1 pixel at a time in world units
+        double screenHeight = yMaxPlot - yMinPlot;
+        double overdraw = screenHeight * 0.1;
+
         double step = 1.0 / unitPx;
-        if (fastRenderMode) step *= 2.0;
-
-        double h = getHeight();
-        // Safe Y bounds so JavaFX doesn't crash on extremely large off-screen paths
-        double safeMinY = -h;
-        double safeMaxY = h * 2;
+        long totalSteps = (long) Math.ceil((xMaxPlot - xMinPlot) / step);
 
         boolean penDown = false;
-        double prevScreenY = Double.NaN;
+        double prevY = Double.NaN;
+        double prevX = Double.NaN;
 
-        g.beginPath();
-
-        for (double x = xMinPlot; x <= xMaxPlot; x += step) {
+        for (long i = 0; i <= totalSteps; i++) {
+            double x = xMinPlot + (i * step);
             double y = eq.evalExplicit(x);
 
+            // ---- 1. Domain Boundary (Valid -> NaN) ----
             if (bad(y)) {
-                penDown = false;
+                if (penDown) {
+                    double edgeX = findBoundary(eq, prevX, x, true);
+                    double edgeY = eq.evalExplicit(edgeX);
+
+                    if (!bad(edgeY)) {
+                        double clampedEdgeY = Math.max(yMinPlot - overdraw, Math.min(yMaxPlot + overdraw, edgeY));
+                        g.lineTo(wxToPx(edgeX), wyToPy(clampedEdgeY));
+                    }
+                    g.stroke();
+                    penDown = false;
+                }
+                prevX = x;
+                prevY = y;
                 continue;
             }
 
-            double screenX = wxToPx(x);
-            double trueScreenY = wyToPy(y);
+            double clampedY = Math.max(yMinPlot - overdraw, Math.min(yMaxPlot + overdraw, y));
 
-            // Clamp screen Y to visually safe bounds
-            double clampedScreenY = Math.max(safeMinY, Math.min(safeMaxY, trueScreenY));
-
+            // ---- 2. Entering Domain (NaN -> Valid) ----
             if (!penDown) {
-                g.moveTo(screenX, clampedScreenY);
+                g.beginPath();
+                if (bad(prevY) && !Double.isNaN(prevX)) {
+                    double edgeX = findBoundary(eq, prevX, x, false);
+                    double edgeY = eq.evalExplicit(edgeX);
+
+                    if (!bad(edgeY)) {
+                        double clampedEdgeY = Math.max(yMinPlot - overdraw, Math.min(yMaxPlot + overdraw, edgeY));
+                        g.moveTo(wxToPx(edgeX), wyToPy(clampedEdgeY));
+                        g.lineTo(wxToPx(x), wyToPy(clampedY));
+                    } else {
+                        g.moveTo(wxToPx(x), wyToPy(clampedY));
+                    }
+                } else {
+                    g.moveTo(wxToPx(x), wyToPy(clampedY));
+                }
                 penDown = true;
             } else {
-                // THE ASYMPTOTE FIX:
-                // If the vertical jump in a single horizontal pixel is greater than the height
-                // of the canvas itself, we crossed an asymptote. Pick up the pen!
-                if (!Double.isNaN(prevScreenY) && Math.abs(trueScreenY - prevScreenY) > h) {
-                    g.moveTo(screenX, clampedScreenY); // Existing Asymptote Fix
+
+                // ---- 3. Vertical Asymptotes & Step Functions (Valid -> Valid) ----
+                boolean breakLine = false;
+                double dy = Math.abs(y - prevY);
+                double pixelDy = dy * unitPx;
+
+                if (pixelDy > 2.0) {
+                    double midX = (prevX + x) / 2.0;
+                    double midY = eq.evalExplicit(midX);
+
+                    if (bad(midY)) {
+                        breakLine = true;
+                    } else {
+                        double expectedMidY = (prevY + y) / 2.0;
+                        double deviation = Math.abs(midY - expectedMidY);
+
+                        if (deviation >= dy * 0.3) {
+                            // High deviation means it's an asymptote (tan(x), 1/x)
+                            breakLine = true;
+                        } else if (Math.abs(midY - prevY) < 1e-7 || Math.abs(midY - y) < 1e-7) {
+                            // Perfect flat step (floor(x), ceil(x))
+                            breakLine = true;
+                        } else if (dy > screenHeight * 0.5 && (y * prevY < 0)) {
+                            // Massive jump crossing zero
+                            breakLine = true;
+                        } else if (dy > screenHeight * 2.0) {
+                            // Just a massive jump off-screen
+                            breakLine = true;
+                        }
+                    }
                 }
-                // NEW: Detect step-function jumps (if Y jumps mathematically by ~1.0 in a single pixel)
-                else if (!Double.isNaN(prevScreenY) && Math.abs(y - eq.evalExplicit(x - step)) >= 0.9) {
-                    g.moveTo(screenX, clampedScreenY); // Pick up pen to break the step
-                }
-                else {
-                    g.lineTo(screenX, clampedScreenY);
+
+                if (breakLine) {
+                    // Break the line and move pen, rather than drawing false asymptote lines
+                    g.stroke();
+                    g.beginPath();
+                    g.moveTo(wxToPx(x), wyToPy(clampedY));
+                } else {
+                    g.lineTo(wxToPx(x), wyToPy(clampedY));
                 }
             }
 
-            prevScreenY = trueScreenY;
+            prevX = x;
+            prevY = y;
         }
 
-        g.stroke();
+        if (penDown) g.stroke();
+    }
+
+    private double findBoundary(PlotEquation eq, double left, double right, boolean leftIsValid) {
+        double validX = leftIsValid ? left : right;
+        for (int i = 0; i < 20; i++) {
+            double mid = (left + right) / 2.0;
+            double midY = eq.evalExplicit(mid);
+            boolean midIsBad = bad(midY);
+
+            if (leftIsValid) {
+                if (midIsBad) right = mid;
+                else { left = mid; validX = mid; }
+            } else {
+                if (midIsBad) left = mid;
+                else { right = mid; validX = mid; }
+            }
+        }
+        return validX;
     }
 
     // ---------- Implicit plot ----------
@@ -384,22 +430,10 @@ public class GraphCanvas extends Canvas {
 
                 int count = 0;
                 double[] p0 = null, p1 = null, p2 = null, p3 = null;
-                if ((f00 > 0) != (f10 > 0)) {
-                    p0 = new double[]{interp(x0, x1, f00, f10), y0};
-                    count++;
-                }
-                if ((f10 > 0) != (f11 > 0)) {
-                    p1 = new double[]{x1, interp(y0, y1, f10, f11)};
-                    count++;
-                }
-                if ((f01 > 0) != (f11 > 0)) {
-                    p2 = new double[]{interp(x0, x1, f01, f11), y1};
-                    count++;
-                }
-                if ((f00 > 0) != (f01 > 0)) {
-                    p3 = new double[]{x0, interp(y0, y1, f00, f01)};
-                    count++;
-                }
+                if ((f00 > 0) != (f10 > 0)) { p0 = new double[]{interp(x0, x1, f00, f10), y0}; count++; }
+                if ((f10 > 0) != (f11 > 0)) { p1 = new double[]{x1, interp(y0, y1, f10, f11)}; count++; }
+                if ((f01 > 0) != (f11 > 0)) { p2 = new double[]{interp(x0, x1, f01, f11), y1}; count++; }
+                if ((f00 > 0) != (f01 > 0)) { p3 = new double[]{x0, interp(y0, y1, f00, f01)}; count++; }
 
                 if (count == 2) {
                     double[] a = firstNonNull(p0, p1, p2, p3);
@@ -430,10 +464,7 @@ public class GraphCanvas extends Canvas {
         boolean found = false;
         for (double[] a : arr) {
             if (a == null) continue;
-            if (!found) {
-                found = true;
-                continue;
-            }
+            if (!found) { found = true; continue; }
             return a;
         }
         return null;

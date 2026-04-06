@@ -35,7 +35,7 @@ public class PlotEquation {
     // Regex to find words (potential variables)
     private static final Pattern VAR_PATTERN = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");
 
-    // Set of known functions
+    // Set of known functions & constants
     private static final Set<String> KNOWN_FUNCS = new HashSet<>(Arrays.asList(
             "sin", "cos", "tan", "sec", "csc", "cosec", "cot",
             "asin", "acos", "atan", "sinh", "cosh", "tanh",
@@ -51,75 +51,41 @@ public class PlotEquation {
             double exponent = args[1];
 
             if (base < 0) {
-                // If it's an integer exponent, let normal math handle it
                 if (Math.abs(exponent - Math.round(exponent)) < 1e-9) {
                     return Math.pow(base, exponent);
                 }
-                // Check if exponent is a fraction with a small odd denominator (3, 5, 7, 9, 11)
                 for (int q = 3; q <= 11; q += 2) {
                     double p = exponent * q;
                     if (Math.abs(p - Math.round(p)) < 1e-9) {
-                        // It is a valid fraction!
                         long pInt = Math.round(p);
                         double res = Math.pow(Math.abs(base), exponent);
-                        // If the numerator is odd, the result is negative. If even, positive.
                         return (pInt % 2 != 0) ? -res : res;
                     }
                 }
             }
-            // Default behavior for everything else
             return Math.pow(base, exponent);
         }
     };
 
+    // Custom Functions
     private static final Function LOG10_FUNC = new Function("log10", 1) {
-        @Override
-        public double apply(double... args) {
-            double v = args[0];
-            if (v <= 0) return Double.NaN;     // domain error -> break segment
-            return Math.log10(v);              // may go very negative near 0+
-        }
+        @Override public double apply(double... args) { return args[0] <= 0 ? Double.NaN : Math.log10(args[0]); }
     };
-
     private static final Function LN_FUNC = new Function("log", 1) {
-        @Override
-        public double apply(double... args) {
-            double v = args[0];
-            if (v <= 0) return Double.NaN;     // domain error -> break segment
-            return Math.log(v);                // may go very negative near 0+
-        }
+        @Override public double apply(double... args) { return args[0] <= 0 ? Double.NaN : Math.log(args[0]); }
     };
-
-    private static double safeReciprocal(double v) {
-        return Math.abs(v) < 1e-12 ? Double.NaN : 1.0 / v;
-    }
-
+    private static double safeReciprocal(double v) { return Math.abs(v) < 1e-12 ? Double.NaN : 1.0 / v; }
     private static final Function SEC_FUNC = new Function("sec", 1) {
-        @Override
-        public double apply(double... args) {
-            return safeReciprocal(Math.cos(args[0]));
-        }
+        @Override public double apply(double... args) { return safeReciprocal(Math.cos(args[0])); }
     };
-
     private static final Function CSC_FUNC = new Function("csc", 1) {
-        @Override
-        public double apply(double... args) {
-            return safeReciprocal(Math.sin(args[0]));
-        }
+        @Override public double apply(double... args) { return safeReciprocal(Math.sin(args[0])); }
     };
-
     private static final Function COSEC_FUNC = new Function("cosec", 1) {
-        @Override
-        public double apply(double... args) {
-            return safeReciprocal(Math.sin(args[0]));
-        }
+        @Override public double apply(double... args) { return safeReciprocal(Math.sin(args[0])); }
     };
-
     private static final Function COT_FUNC = new Function("cot", 1) {
-        @Override
-        public double apply(double... args) {
-            return safeReciprocal(Math.tan(args[0]));
-        }
+        @Override public double apply(double... args) { return safeReciprocal(Math.tan(args[0])); }
     };
 
     public PlotEquation(String text, Color color) {
@@ -155,27 +121,8 @@ public class PlotEquation {
                 allVars.addAll(varsY);
 
                 try {
-                    this.pointXExpr = new ExpressionBuilder(normalize(sX))
-                            .variables(allVars)
-                            .function(LOG10_FUNC)
-                            .function(LN_FUNC)
-                            .function(SEC_FUNC)
-                            .function(CSC_FUNC)
-                            .function(COSEC_FUNC)
-                            .function(COT_FUNC)
-                            .operator(POWER_OPERATOR)
-                            .build();
-
-                    this.pointYExpr = new ExpressionBuilder(normalize(sY))
-                            .variables(allVars)
-                            .function(LOG10_FUNC)
-                            .function(LN_FUNC)
-                            .function(SEC_FUNC)
-                            .function(CSC_FUNC)
-                            .function(COSEC_FUNC)
-                            .function(COT_FUNC)
-                            .operator(POWER_OPERATOR)
-                            .build();
+                    this.pointXExpr = createBaseBuilder(normalize(sX)).variables(allVars).build();
+                    this.pointYExpr = createBaseBuilder(normalize(sY)).variables(allVars).build();
                     this.isPoint = true;
                     for (String v : allVars) {
                         if (!params.containsKey(v)) params.put(v, 1.0);
@@ -189,59 +136,58 @@ public class PlotEquation {
         // 2. Normal Equation Parsing
         String norm = normalize(s);
 
-        // Extract params
         Set<String> vars = extractVariables(norm, false);
         for (String p : vars) {
             if (!params.containsKey(p)) params.put(p, 1.0);
             paramNames.add(p);
         }
 
-        // SMART EXPLICIT DETECTION
+        // SMART EXPLICIT / IMPLICIT DETECTION
         if (norm.contains("=")) {
             String[] parts = norm.split("=", 2);
             if (parts[0].equals("y") && !parts[1].contains("y")) {
                 this.implicit = false;
-                norm = parts[1]; // Use RHS
+                norm = parts[1];
             } else if (parts[1].equals("y") && !parts[0].contains("y")) {
                 this.implicit = false;
-                norm = parts[0]; // Use LHS
+                norm = parts[0];
             } else {
-                this.implicit = true; // Truly implicit
+                this.implicit = true;
+                norm = "(" + parts[0] + ")-(" + parts[1] + ")";
             }
         } else {
-            this.implicit = false;
+            if (vars.contains("x") && vars.contains("y")) {
+                this.implicit = true;
+            } else {
+                this.implicit = false;
+            }
         }
 
-        // Build Expressions
-        if (this.implicit) {
-            String[] parts = norm.split("=", 2);
-            if (parts.length == 2) {
-                String combined = "(" + parts[0] + ")-(" + parts[1] + ")";
-                try {
-                    this.implicitExpr = new ExpressionBuilder(combined)
-                            .variables("x", "y")
-                            .variables(params.keySet())
-                            .function(LOG10_FUNC)
-                            .function(LN_FUNC)
-                            .operator(POWER_OPERATOR)
-                            .build();
-                } catch (Exception e) {
-                    this.implicitExpr = null;
-                }
-            }
-        } else {
-            try {
-                this.explicitExpr = new ExpressionBuilder(norm)
+        try {
+            if (this.implicit) {
+                this.implicitExpr = createBaseBuilder(norm)
+                        .variables("x", "y")
+                        .variables(params.keySet())
+                        .build();
+            } else {
+                this.explicitExpr = createBaseBuilder(norm)
                         .variables("x")
                         .variables(params.keySet())
-                        .function(LOG10_FUNC)
-                        .function(LN_FUNC)
-                        .operator(POWER_OPERATOR)
                         .build();
-            } catch (Exception e) {
-                this.explicitExpr = null;
             }
-        }
+        } catch (Exception ignored) { }
+    }
+
+    // DRY Helper method for expressions
+    private ExpressionBuilder createBaseBuilder(String expr) {
+        return new ExpressionBuilder(expr)
+                .function(LOG10_FUNC)
+                .function(LN_FUNC)
+                .function(SEC_FUNC)
+                .function(CSC_FUNC)
+                .function(COSEC_FUNC)
+                .function(COT_FUNC)
+                .operator(POWER_OPERATOR);
     }
 
     private int findTopLevelComma(String text) {
@@ -266,11 +212,13 @@ public class PlotEquation {
                     if (!isMath) vars.add(w);
                 }
             } else {
-                if (!KNOWN_FUNCS.contains(w)) {
+                if (!KNOWN_FUNCS.contains(w) || w.equals("x") || w.equals("y")) {
                     vars.add(w);
                 }
             }
         }
+        vars.remove("x");
+        vars.remove("y");
         return vars;
     }
 
@@ -284,7 +232,6 @@ public class PlotEquation {
         s = s.replace("atan^-1", "F_ATAN");
         s = s.replace("tan^-1", "F_ATAN");
 
-        // reciprocal trig aliases first, before sin/cos/tan replacement
         s = s.replace("cosec", "F_COSEC");
         s = s.replace("csc", "F_CSC");
         s = s.replace("sec", "F_SEC");
@@ -305,7 +252,6 @@ public class PlotEquation {
         s = s.replace("ln", "F_LN");
         s = s.replace("pi", "F_PI");
 
-        // Protect Step Functions
         s = s.replace("ceil", "F_CEIL");
         s = s.replace("floor", "F_FLOOR");
         s = s.replace("signum", "F_SIGNUM");
@@ -345,7 +291,6 @@ public class PlotEquation {
         s = s.replace("F_LN", "log");
         s = s.replace("F_PI", "pi");
 
-        // Restore Step Functions
         s = s.replace("F_CEIL", "ceil");
         s = s.replace("F_FLOOR", "floor");
         s = s.replace("F_SIGNUM", "signum");
@@ -353,6 +298,45 @@ public class PlotEquation {
 
         return s;
     }
+
+    // ---------- NEW CIRCUIT BREAKER FOR RENDERING ----------
+    /**
+     * Determines if the renderer should draw a connecting line between two math Y-values.
+     * Use this in your Canvas drawing loop to fix vertical asymptote lines and step functions.
+     * * @param y1 Previous Y math value
+     * @param y2 Current Y math value
+     * @param visibleYRange Total height of the graphing window (e.g., yMax - yMin)
+     */
+    public boolean shouldConnect(double y1, double y2, double visibleYRange) {
+        if (Double.isNaN(y1) || Double.isNaN(y2) || Double.isInfinite(y1) || Double.isInfinite(y2)) return false;
+
+        double dy = Math.abs(y2 - y1);
+
+        // 1. Asymptote Detection (tan, sec, cot, csc)
+        // If it jumps by more than 50% of the screen height AND crosses zero, it's an asymptote.
+        if (dy > visibleYRange * 0.5 && (y1 * y2 <= 0)) {
+            return false;
+        }
+
+        // 2. Extreme Rational Asymptotes (e.g., 1/x^2)
+        // Massive jumps that might not cross zero but are impossible for a smooth curve pixel-to-pixel
+        if (dy > visibleYRange * 2.0) {
+            return false;
+        }
+
+        // 3. Step Function Detection (floor, ceil, signum, round)
+        // Prevents the diagonal zigzag lines connecting the steps in step functions.
+        String lowerText = rawText.toLowerCase();
+        boolean hasStepFunc = lowerText.contains("floor") || lowerText.contains("ceil") ||
+                lowerText.contains("signum") || lowerText.contains("round");
+        if (hasStepFunc && dy >= 0.8) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // ---------- GETTERS & SETTERS ----------
 
     public double getPointX() {
         if (!isPoint || pointXExpr == null) return Double.NaN;
@@ -364,6 +348,13 @@ public class PlotEquation {
         if (!isPoint || pointYExpr == null) return Double.NaN;
         for (Map.Entry<String, Double> e : params.entrySet()) pointYExpr.setVariable(e.getKey(), e.getValue());
         try { return pointYExpr.evaluate(); } catch (Exception e) { return Double.NaN; }
+    }
+
+    public String getDynamicLabel(int index) {
+        double px = getPointX();
+        double py = getPointY();
+        if (Double.isNaN(px) || Double.isNaN(py)) return "P" + index;
+        return String.format("P%d: (%.2f, %.2f)", index, px, py);
     }
 
     public double evalExplicit(double x) {
