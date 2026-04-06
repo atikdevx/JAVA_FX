@@ -39,6 +39,12 @@ public class GraphCanvas extends Canvas {
         fastRenderMode = false;
     }
 
+    public void drawFast() {
+        this.fastRenderMode = true;
+        draw();
+        this.fastRenderMode = false;
+    }
+
     // ---------- View params ----------
     private double xCenter = 0;
     private double yCenter = 0;
@@ -208,12 +214,14 @@ public class GraphCanvas extends Canvas {
         }
         g.fillText("0", yAxisX - 12, xAxisY + 16);
 
-        // Draw Equations
         g.setLineWidth(2.2);
         int pointCounter = 1;
 
         for (PlotEquation eq : equations) {
             if (eq == null || !eq.isVisible()) continue;
+
+            eq.applyParamsToExpressions();
+
             g.setStroke(eq.getColor() == null ? Color.BLUE : eq.getColor());
             g.setFill(eq.getColor() == null ? Color.BLUE : eq.getColor());
 
@@ -245,7 +253,6 @@ public class GraphCanvas extends Canvas {
         return String.format("%.2f", val);
     }
 
-    // ---------- Points ----------
     private void plotPoint(GraphicsContext g, PlotEquation eq, int index) {
         double px = eq.getPointX();
         double py = eq.getPointY();
@@ -264,7 +271,7 @@ public class GraphCanvas extends Canvas {
         }
     }
 
-    // ---------- Explicit plot (Cleaned up) ----------
+    // ---------- Explicit plot (Fixed Asymptotes & Log Curves) ----------
     private void plotExplicit(GraphicsContext g, PlotEquation eq, double halfWUnits, double halfHUnits) {
         double xMinPlot = xCenter - halfWUnits;
         double xMaxPlot = xCenter + halfWUnits;
@@ -285,13 +292,21 @@ public class GraphCanvas extends Canvas {
             double x = xMinPlot + (i * step);
             double y = eq.evalExplicit(x);
 
-            // ---- 1. Domain Boundary (Valid -> NaN) ----
+            // ---- 1. Exiting Domain (Valid -> NaN) ----
             if (bad(y)) {
                 if (penDown) {
                     double edgeX = findBoundary(eq, prevX, x, true);
                     double edgeY = eq.evalExplicit(edgeX);
 
                     if (!bad(edgeY)) {
+                        // NEW: Asymptote Extender (Shoots line off screen if steep)
+                        if (Math.abs(edgeY) > 5.0) {
+                            double testY = eq.evalExplicit(edgeX - step * 0.001);
+                            if (!bad(testY)) {
+                                if (edgeY < -5.0 && testY > edgeY) edgeY = yMinPlot - overdraw;
+                                if (edgeY > 5.0 && testY < edgeY) edgeY = yMaxPlot + overdraw;
+                            }
+                        }
                         double clampedEdgeY = Math.max(yMinPlot - overdraw, Math.min(yMaxPlot + overdraw, edgeY));
                         g.lineTo(wxToPx(edgeX), wyToPy(clampedEdgeY));
                     }
@@ -313,6 +328,14 @@ public class GraphCanvas extends Canvas {
                     double edgeY = eq.evalExplicit(edgeX);
 
                     if (!bad(edgeY)) {
+                        // NEW: Asymptote Extender
+                        if (Math.abs(edgeY) > 5.0) {
+                            double testY = eq.evalExplicit(edgeX + step * 0.001);
+                            if (!bad(testY)) {
+                                if (edgeY < -5.0 && testY > edgeY) edgeY = yMinPlot - overdraw;
+                                if (edgeY > 5.0 && testY < edgeY) edgeY = yMaxPlot + overdraw;
+                            }
+                        }
                         double clampedEdgeY = Math.max(yMinPlot - overdraw, Math.min(yMaxPlot + overdraw, edgeY));
                         g.moveTo(wxToPx(edgeX), wyToPy(clampedEdgeY));
                         g.lineTo(wxToPx(x), wyToPy(clampedY));
@@ -325,7 +348,7 @@ public class GraphCanvas extends Canvas {
                 penDown = true;
             } else {
 
-                // ---- 3. Vertical Asymptotes & Step Functions (Valid -> Valid) ----
+                // ---- 3. Vertical Asymptotes & Steep Curves (Valid -> Valid) ----
                 boolean breakLine = false;
                 double dy = Math.abs(y - prevY);
                 double pixelDy = dy * unitPx;
@@ -341,23 +364,29 @@ public class GraphCanvas extends Canvas {
                         double deviation = Math.abs(midY - expectedMidY);
 
                         if (deviation >= dy * 0.3) {
-                            // High deviation means it's an asymptote (tan(x), 1/x)
-                            breakLine = true;
+                            // NEW: Monotonicity Check to rescue ln(x) from false-breaking
+                            double q1 = eq.evalExplicit(prevX + (x - prevX) * 0.3333);
+                            double q2 = eq.evalExplicit(prevX + (x - prevX) * 0.6666);
+
+                            boolean isInc = prevY < q1 && q1 < q2 && q2 < y;
+                            boolean isDec = prevY > q1 && q1 > q2 && q2 > y;
+
+                            if (!bad(q1) && !bad(q2) && (isInc || isDec)) {
+                                breakLine = false; // It's just a continuous, steep slope
+                            } else {
+                                breakLine = true;  // It crossed an asymptote or fluctuated
+                            }
                         } else if (Math.abs(midY - prevY) < 1e-7 || Math.abs(midY - y) < 1e-7) {
-                            // Perfect flat step (floor(x), ceil(x))
                             breakLine = true;
                         } else if (dy > screenHeight * 0.5 && (y * prevY < 0)) {
-                            // Massive jump crossing zero
                             breakLine = true;
                         } else if (dy > screenHeight * 2.0) {
-                            // Just a massive jump off-screen
                             breakLine = true;
                         }
                     }
                 }
 
                 if (breakLine) {
-                    // Break the line and move pen, rather than drawing false asymptote lines
                     g.stroke();
                     g.beginPath();
                     g.moveTo(wxToPx(x), wyToPy(clampedY));
@@ -375,7 +404,8 @@ public class GraphCanvas extends Canvas {
 
     private double findBoundary(PlotEquation eq, double left, double right, boolean leftIsValid) {
         double validX = leftIsValid ? left : right;
-        for (int i = 0; i < 20; i++) {
+        // INCREASED ITERATIONS: 20 -> 40 for much deeper penetration toward zero.
+        for (int i = 0; i < 40; i++) {
             double mid = (left + right) / 2.0;
             double midY = eq.evalExplicit(mid);
             boolean midIsBad = bad(midY);
@@ -391,40 +421,45 @@ public class GraphCanvas extends Canvas {
         return validX;
     }
 
-    // ---------- Implicit plot ----------
+    // ---------- Optimized Implicit plot ----------
     private void plotImplicitSmooth(GraphicsContext g, PlotEquation eq, double halfWUnits, double halfHUnits) {
         double xMinPlot = xCenter - halfWUnits;
         double xMaxPlot = xCenter + halfWUnits;
         double yMinPlot = yCenter - halfHUnits;
         double yMaxPlot = yCenter + halfHUnits;
-        double step = 4 / unitPx;
-        if (fastRenderMode) step *= 1.8;
+
+        double step = 3.0 / unitPx;
+        if (fastRenderMode) step *= 12.0;
 
         int xSteps = (int) Math.ceil((xMaxPlot - xMinPlot) / step) + 1;
         int ySteps = (int) Math.ceil((yMaxPlot - yMinPlot) / step) + 1;
-        if (xSteps > 600) xSteps = 600;
-        if (ySteps > 600) ySteps = 600;
 
-        double[][] grid = new double[xSteps][ySteps];
-        for (int i = 0; i < xSteps; i++) {
-            double x = xMinPlot + i * step;
-            for (int j = 0; j < ySteps; j++) {
-                double y = yMinPlot + j * step;
-                grid[i][j] = eq.evalImplicit(x, y);
-            }
+        if (xSteps > 800) xSteps = 800;
+        if (ySteps > 800) ySteps = 800;
+
+        double[] row0 = new double[ySteps];
+        double[] row1 = new double[ySteps];
+
+        for (int j = 0; j < ySteps; j++) {
+            row0[j] = eq.evalImplicit(xMinPlot, yMinPlot + j * step);
         }
 
         for (int i = 0; i < xSteps - 1; i++) {
+            double x0 = xMinPlot + i * step;
+            double x1 = x0 + step;
+
+            for (int j = 0; j < ySteps; j++) {
+                row1[j] = eq.evalImplicit(x1, yMinPlot + j * step);
+            }
+
             for (int j = 0; j < ySteps - 1; j++) {
-                double f00 = grid[i][j];
-                double f10 = grid[i + 1][j];
-                double f01 = grid[i][j + 1];
-                double f11 = grid[i + 1][j + 1];
+                double f00 = row0[j];
+                double f10 = row1[j];
+                double f01 = row0[j + 1];
+                double f11 = row1[j + 1];
 
                 if (bad(f00) || bad(f10) || bad(f11) || bad(f01)) continue;
 
-                double x0 = xMinPlot + i * step;
-                double x1 = x0 + step;
                 double y0 = yMinPlot + j * step;
                 double y1 = y0 + step;
 
@@ -452,6 +487,7 @@ public class GraphCanvas extends Canvas {
                     }
                 }
             }
+            System.arraycopy(row1, 0, row0, 0, ySteps);
         }
     }
 

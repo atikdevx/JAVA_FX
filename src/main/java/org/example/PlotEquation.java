@@ -299,33 +299,22 @@ public class PlotEquation {
         return s;
     }
 
-    // ---------- NEW CIRCUIT BREAKER FOR RENDERING ----------
     /**
      * Determines if the renderer should draw a connecting line between two math Y-values.
-     * Use this in your Canvas drawing loop to fix vertical asymptote lines and step functions.
-     * * @param y1 Previous Y math value
-     * @param y2 Current Y math value
-     * @param visibleYRange Total height of the graphing window (e.g., yMax - yMin)
      */
     public boolean shouldConnect(double y1, double y2, double visibleYRange) {
         if (Double.isNaN(y1) || Double.isNaN(y2) || Double.isInfinite(y1) || Double.isInfinite(y2)) return false;
 
         double dy = Math.abs(y2 - y1);
 
-        // 1. Asymptote Detection (tan, sec, cot, csc)
-        // If it jumps by more than 50% of the screen height AND crosses zero, it's an asymptote.
         if (dy > visibleYRange * 0.5 && (y1 * y2 <= 0)) {
             return false;
         }
 
-        // 2. Extreme Rational Asymptotes (e.g., 1/x^2)
-        // Massive jumps that might not cross zero but are impossible for a smooth curve pixel-to-pixel
         if (dy > visibleYRange * 2.0) {
             return false;
         }
 
-        // 3. Step Function Detection (floor, ceil, signum, round)
-        // Prevents the diagonal zigzag lines connecting the steps in step functions.
         String lowerText = rawText.toLowerCase();
         boolean hasStepFunc = lowerText.contains("floor") || lowerText.contains("ceil") ||
                 lowerText.contains("signum") || lowerText.contains("round");
@@ -336,17 +325,42 @@ public class PlotEquation {
         return true;
     }
 
-    // ---------- GETTERS & SETTERS ----------
+    // ---------- NEW PARAMETER OPTIMIZATION METHOD ----------
+    /**
+     * Applies parameters exactly once per render frame instead of looping inside the evaluate methods.
+     */
+    public void applyParamsToExpressions() {
+        if (explicitExpr != null) {
+            for (Map.Entry<String, Double> e : params.entrySet()) {
+                explicitExpr.setVariable(e.getKey(), e.getValue());
+            }
+        }
+        if (implicitExpr != null) {
+            for (Map.Entry<String, Double> e : params.entrySet()) {
+                implicitExpr.setVariable(e.getKey(), e.getValue());
+            }
+        }
+        if (pointXExpr != null) {
+            for (Map.Entry<String, Double> e : params.entrySet()) {
+                pointXExpr.setVariable(e.getKey(), e.getValue());
+            }
+        }
+        if (pointYExpr != null) {
+            for (Map.Entry<String, Double> e : params.entrySet()) {
+                pointYExpr.setVariable(e.getKey(), e.getValue());
+            }
+        }
+    }
+
+    // ---------- OPTIMIZED GETTERS & EVALUATORS ----------
 
     public double getPointX() {
         if (!isPoint || pointXExpr == null) return Double.NaN;
-        for (Map.Entry<String, Double> e : params.entrySet()) pointXExpr.setVariable(e.getKey(), e.getValue());
         try { return pointXExpr.evaluate(); } catch (Exception e) { return Double.NaN; }
     }
 
     public double getPointY() {
         if (!isPoint || pointYExpr == null) return Double.NaN;
-        for (Map.Entry<String, Double> e : params.entrySet()) pointYExpr.setVariable(e.getKey(), e.getValue());
         try { return pointYExpr.evaluate(); } catch (Exception e) { return Double.NaN; }
     }
 
@@ -360,7 +374,6 @@ public class PlotEquation {
     public double evalExplicit(double x) {
         if (explicitExpr == null) return Double.NaN;
         explicitExpr.setVariable("x", x);
-        for (Map.Entry<String, Double> e : params.entrySet()) explicitExpr.setVariable(e.getKey(), e.getValue());
         try { return explicitExpr.evaluate(); } catch (Exception e) { return Double.NaN; }
     }
 
@@ -368,7 +381,6 @@ public class PlotEquation {
         if (implicitExpr == null) return Double.NaN;
         implicitExpr.setVariable("x", x);
         implicitExpr.setVariable("y", y);
-        for (Map.Entry<String, Double> e : params.entrySet()) implicitExpr.setVariable(e.getKey(), e.getValue());
         try { return implicitExpr.evaluate(); } catch (Exception e) { return Double.NaN; }
     }
 
