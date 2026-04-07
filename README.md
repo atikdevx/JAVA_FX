@@ -36,20 +36,12 @@ At its core, **Pika Plotter** is driven by a powerful synergy of Java-based tech
 ## 📐 2D Cartesian Engine: Precision & Dynamics
 
 <div align="center">
-  <img src="Screenshot 2026-04-06 at 7.58.43 AM.jpg" width="48%" style="border-radius: 8px; box-shadow: 0 8px 16px rgba(0,0,0,0.2); margin-right: 2%;"/>
-  <img src="Screenshot 2026-04-06 at 7.58.36 AM.jpg" width="48%" style="border-radius: 8px; box-shadow: 0 8px 16px rgba(0,0,0,0.2);"/>
-  <p style="color: #666; font-size: 0.9em; margin-top: 10px;"><i>Light Mode: Perfect asymptote detection for <code>1/cos(x)</code> and <code>tan(x)</code>.</i></p>
-</div>
-
-<br/>
-
-<div align="center">
-  <img src="heart.png" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(255,0,122,0.3); border: 2px solid #333;"/>
+  <img src="heart.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(255,0,122,0.3); border: 2px solid #333;"/>
   <p style="color: #666; font-size: 0.9em; margin-top: 10px;"><i>Dark Mode: Complex animated heartbeat equation with a live parameter slider.</i></p>
 </div>
 
 ### ✧ Features & Technical Implementation
-* **Asymptote Circuit-Breaker:** Notice in the `1/cos(x)` and `tan(x)` graphs how there are no ugly vertical lines connecting the top to the bottom. The engine calculates the derivative and function domain in real-time; if it detects an infinite jump across a single pixel boundary, it "lifts the pen," ensuring mathematically flawless discontinuity rendering.
+* **Asymptote Circuit-Breaker:** The engine calculates the derivative and function domain in real-time; if it detects an infinite jump across a single pixel boundary (like in `1/cos(x)`), it "lifts the pen," ensuring mathematically flawless discontinuity rendering.
 * **Real-Time Parameter Sliders (`a`, `b`, `c`):** As seen in the Dark Mode "Heart" graph, introducing an unknown variable like `a` auto-generates a sleek UI slider. Dragging it—or pressing the play/pause toggle—triggers a hardware-accelerated Canvas redraw at 60 FPS, turning static formulas into fluid motion.
 * **Glass-Morphism UI & Theme Engine:** The draggable equation panel features a semi-transparent frosted glass effect. Instantly toggle between a crisp, legible Light Mode and a deep, neon-accented Dark Mode.
 
@@ -58,7 +50,7 @@ At its core, **Pika Plotter** is driven by a powerful synergy of Java-based tech
 ## 🧊 3D Surface Topology
 
 <div align="center">
-  <img src="cone.png" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(0,201,255,0.3); border: 2px solid #eaeaea;"/>
+  <img src="cone.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(0,201,255,0.3); border: 2px solid #eaeaea;"/>
   <p style="color: #666; font-size: 0.9em; margin-top: 10px;"><i>3D Mapping of <code>x^2 + y^2 = z</code> featuring spatial grid rendering and depth colorization.</i></p>
 </div>
 
@@ -73,7 +65,7 @@ At its core, **Pika Plotter** is driven by a powerful synergy of Java-based tech
 ## 🌀 Polar & Parametric Kinematics
 
 <div align="center">
-  <img src="butterfly.png" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(121,40,202,0.4); border: 2px solid #333;"/>
+  <img src="butterfly.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(121,40,202,0.4); border: 2px solid #333;"/>
   <p style="color: #666; font-size: 0.9em; margin-top: 10px;"><i>Polar Dark Mode: Highly complex, animated "Butterfly" curve mapping <code>r(t)</code>.</i></p>
 </div>
 
