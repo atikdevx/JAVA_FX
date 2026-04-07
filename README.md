@@ -24,55 +24,76 @@
 
 <br/>
 
-## ✧ Architectural Overview & Libraries
+## 🌌 An Elegant Interface: The Main Menu
 
-At its core, **Pika Plotter** is driven by a powerful synergy of Java-based technologies, explicitly designed to handle intensive graphical computations without dropping frames:
-* **JavaFX Canvas API:** Utilized for rapid, hardware-accelerated 2D and Polar drawing. Features double-buffering to eliminate screen tearing during parameter animations.
-* **JavaFX 3D / Custom Projection:** Powers the spatial topological rendering, handling dynamic camera perspectives and depth-sorting matrices.
-* **Exp4j (Extended):** The backbone mathematical parser. We heavily customized the base Exp4j library to parse dynamic parameters (`a`, `t`), handle fractional powers of negative bases, and process complex reciprocal trigonometric identities.
+<div align="center">
+  <img src="./menu.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(121,40,202,0.4); border: 2px solid #333;"/>
+  <p style="color: #666; font-size: 0.9em; margin-top: 10px;"><i>The immersive entry point to Pika Plotter, featuring floating mathematical symbols and a premium glassmorphism interface.</i></p>
+</div>
 
-<hr style="border: 0; height: 2px; background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(121, 40, 202, 0.8), rgba(0, 0, 0, 0)); margin: 50px 0;">
+### ✧ A Beautiful Space for Infinite Visions
+The application greets users with a visually stunning, dynamic environment. The UI is built entirely from scratch to provide a **fluid and elegant visual experience**, integrating premium glassmorphism design concepts. From here, users can seamlessly transition between 2D, 3D, and Polar graphing engines.
+
+<hr style="border: 0; height: 1px; background: #ddd; margin: 50px 0;">
 
 ## 📐 2D Cartesian Engine: Precision & Dynamics
 
 <div align="center">
-  <img src="heart.png" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(255,0,122,0.3); border: 2px solid #333;"/>
+  <img src="./heart.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(255,0,122,0.3); border: 2px solid #333;"/>
   <p style="color: #666; font-size: 0.9em; margin-top: 10px;"><i>Dark Mode: Complex animated heartbeat equation with a live parameter slider.</i></p>
 </div>
 
 ### ✧ Features & Technical Implementation
-* **Asymptote Circuit-Breaker:** The engine calculates the derivative and function domain in real-time; if it detects an infinite jump across a single pixel boundary (like in `1/cos(x)`), it "lifts the pen," ensuring mathematically flawless discontinuity rendering.
-* **Real-Time Parameter Sliders (`a`, `b`, `c`):** As seen in the Dark Mode "Heart" graph, introducing an unknown variable like `a` auto-generates a sleek UI slider. Dragging it—or pressing the play/pause toggle—triggers a hardware-accelerated Canvas redraw at 60 FPS, turning static formulas into fluid motion.
-* **Glass-Morphism UI & Theme Engine:** The draggable equation panel features a semi-transparent frosted glass effect. Instantly toggle between a crisp, legible Light Mode and a deep, neon-accented Dark Mode.
+* **Real-Time Graph Updates:** Plot standard mathematical functions (linear, quadratic, trigonometric) with instantaneous rendering.
+* **Live Parameter Sliders (`a`, `b`, `c`):** As seen in the Dark Mode "Heart" graph, introducing an unknown variable like `a` auto-generates a sleek UI slider. Dragging it—or pressing the play/pause toggle—triggers a hardware-accelerated Canvas redraw, turning static formulas into fluid motion.
+* **Interactive Navigation:** Full support for Zoom and Pan functionality for detailed mathematical inspection, complete with coordinate tracking for precise value analysis.
 
 <hr style="border: 0; height: 1px; background: #ddd; margin: 50px 0;">
 
 ## 🧊 3D Surface Topology
 
 <div align="center">
-  <img src="cone.png" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(0,201,255,0.3); border: 2px solid #eaeaea;"/>
+  <img src="./cone.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(0,201,255,0.3); border: 2px solid #eaeaea;"/>
   <p style="color: #666; font-size: 0.9em; margin-top: 10px;"><i>3D Mapping of <code>x^2 + y^2 = z</code> featuring spatial grid rendering and depth colorization.</i></p>
 </div>
 
 ### ✧ Features & Technical Implementation
-* **Multivariable Parsing:** The engine seamlessly isolates `x`, `y`, and `z` planes, evaluating <code>z = f(x,y)</code> over a generated 2D mesh grid and projecting it into 3D space.
-* **Spatial Camera Controls:** Users can click and drag anywhere on the canvas to orbit around the topological surface. Scroll to zoom in on peaks and saddle points.
-* **Dynamic Mesh & Axis Rendering:** Features a meticulously drawn 3D bounding box, perspective-accurate grid floors, and color-coded XYZ axes for perfect spatial orientation. The surface itself is rendered with vibrant magenta depth-shading to highlight curvature.
-* **Multi-Curve Stacking:** The 3D UI allows for adding standard Surfaces, Implicit 3D equations, and 3D Kinematic curves <code>(x(t), y(t), z(t))</code> simultaneously.
+* **Multivariable Rendering:** Seamlessly isolate `x`, `y`, and `z` planes, rendering three-dimensional surfaces for equations involving two variables.
+* **Spatial Camera Controls:** Rotate and explore graphs interactively from varying angles. Users can click and drag to orbit around the topological surface, experiencing enhanced depth perception for spatial relationships.
+* **Dynamic Multi-Graphing:** The 3D engine supports multiple concurrent inputs, allowing users to stack Standard Surfaces, Implicit 3D equations, and Parametric Curves simultaneously.
 
 <hr style="border: 0; height: 1px; background: #ddd; margin: 50px 0;">
 
 ## 🌀 Polar & Parametric Kinematics
 
 <div align="center">
-  <img src="butterfly.png" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(121,40,202,0.4); border: 2px solid #333;"/>
-  <p style="color: #666; font-size: 0.9em; margin-top: 10px;"><i>Polar Dark Mode: Highly complex, animated "Butterfly" curve mapping <code>r(t)</code>.</i></p>
+  <img src="./butterfly.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(121,40,202,0.4); border: 2px solid #333;"/>
+  <p style="color: #666; font-size: 0.9em; margin-top: 10px;"><i>Polar Mode: Highly complex, animated "Butterfly" curve mapping <code>r(t)</code>.</i></p>
 </div>
 
 ### ✧ Features & Technical Implementation
-* **Custom Radial Grid Engine:** When switching to Polar mode, the standard Cartesian grid is dynamically swapped for a beautiful concentric radial grid system, marked by angle measures and distance rings.
-* **Parametric Time Sweeping `(t)`:** The parser is tuned to map massive, complex trigonometric outputs (like the butterfly curve shown) using extremely dense `t` step calculations. This ensures that chaotic, high-frequency oscillations remain perfectly smooth without jagged aliasing.
-* **Live Temporal Animation:** Just like in 2D mode, the Polar engine supports dynamic variables. In the screenshot, the parameter `a` (between -0.4 and 0.4) is actively altering the frequency of the inner loops, with the "Pause" button active during live execution.
+* **Dynamic Angle-Based Rendering:** Plot equations in polar coordinates `(r = f(θ))`, ideal for visualizing circular, spiral, and periodic patterns.
+* **Custom Radial Grid Engine:** When switching to Polar mode, the Cartesian grid is swapped for a beautiful concentric radial grid system, tracking standard angle measures.
+* **Parametric Time Sweeping `(t)`:** Maps massive, complex trigonometric outputs (like the butterfly curve) using highly dense step calculations to prevent aliasing during live temporal animations.
+
+<hr style="border: 0; height: 2px; background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 201, 255, 0.8), rgba(0, 0, 0, 0)); margin: 50px 0;">
+
+## 👨‍💻 About The Project & Credits
+
+<div align="center">
+  <img src="./about1.jpg" width="80%" style="border-radius: 12px; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);"/>
+  <img src="./about2.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);"/>
+</div>
+
+### ✧ Design Philosophy
+Pika Plotter combines heavy mathematical functionality with high-end elegance, ensuring a smooth and visually appealing user experience. The interface was engineered to be intuitive, modern, and highly responsive, helping users maintain focus entirely on learning and spatial exploration.
+
+### ✧ Project Credits
+This application was developed as a comprehensive academic and passion project at the **Bangladesh University of Engineering & Technology (BUET)**.
+* **Developed By:** MD. Atik Khan & Debabrata Das Rahul
+* **Supervisor:** MD Nurul Muttakin
+
+*We express our sincere gratitude to our supervisor for guidance and support throughout the development of this visualization engine.*
 
 <hr style="border: 0; height: 2px; background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(255, 0, 122, 0.8), rgba(0, 0, 0, 0)); margin: 50px 0;">
 
