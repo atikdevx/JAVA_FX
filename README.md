@@ -27,7 +27,7 @@
 ## 🌌 An Elegant Interface: The Main Menu
 
 <div align="center">
-  <img src="./menu.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(121,40,202,0.4); border: 2px solid #333;"/>
+  <img src="./menu.png" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(121,40,202,0.4); border: 2px solid #333;"/>
   <p style="color: #666; font-size: 0.9em; margin-top: 10px;"><i>The immersive entry point to Pika Plotter, featuring floating mathematical symbols and a premium glassmorphism interface.</i></p>
 </div>
 
@@ -39,7 +39,7 @@ The application greets users with a visually stunning, dynamic environment. The 
 ## 📐 2D Cartesian Engine: Precision & Dynamics
 
 <div align="center">
-  <img src="./heart.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(255,0,122,0.3); border: 2px solid #333;"/>
+  <img src="./heart.png" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(255,0,122,0.3); border: 2px solid #333;"/>
   <p style="color: #666; font-size: 0.9em; margin-top: 10px;"><i>Dark Mode: Complex animated heartbeat equation with a live parameter slider.</i></p>
 </div>
 
@@ -53,7 +53,7 @@ The application greets users with a visually stunning, dynamic environment. The 
 ## 🧊 3D Surface Topology
 
 <div align="center">
-  <img src="./cone.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(0,201,255,0.3); border: 2px solid #eaeaea;"/>
+  <img src="./cone.png" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(0,201,255,0.3); border: 2px solid #eaeaea;"/>
   <p style="color: #666; font-size: 0.9em; margin-top: 10px;"><i>3D Mapping of <code>x^2 + y^2 = z</code> featuring spatial grid rendering and depth colorization.</i></p>
 </div>
 
@@ -67,7 +67,7 @@ The application greets users with a visually stunning, dynamic environment. The 
 ## 🌀 Polar & Parametric Kinematics
 
 <div align="center">
-  <img src="./butterfly.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(121,40,202,0.4); border: 2px solid #333;"/>
+  <img src="./butterfly.png" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(121,40,202,0.4); border: 2px solid #333;"/>
   <p style="color: #666; font-size: 0.9em; margin-top: 10px;"><i>Polar Mode: Highly complex, animated "Butterfly" curve mapping <code>r(t)</code>.</i></p>
 </div>
 
@@ -81,8 +81,8 @@ The application greets users with a visually stunning, dynamic environment. The 
 ## 👨‍💻 About The Project & Credits
 
 <div align="center">
-  <img src="./about1.jpg" width="80%" style="border-radius: 12px; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);"/>
-  <img src="./about2.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);"/>
+  <img src="./about1.png" width="80%" style="border-radius: 12px; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);"/>
+  <img src="./about2.png" width="80%" style="border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);"/>
 </div>
 
 ### ✧ Design Philosophy
