@@ -36,7 +36,7 @@ At its core, **Pika Plotter** is driven by a powerful synergy of Java-based tech
 ## 📐 2D Cartesian Engine: Precision & Dynamics
 
 <div align="center">
-  <img src="heart.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(255,0,122,0.3); border: 2px solid #333;"/>
+  <img src="./heart.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(255,0,122,0.3); border: 2px solid #333;"/>
   <p style="color: #666; font-size: 0.9em; margin-top: 10px;"><i>Dark Mode: Complex animated heartbeat equation with a live parameter slider.</i></p>
 </div>
 
@@ -50,7 +50,7 @@ At its core, **Pika Plotter** is driven by a powerful synergy of Java-based tech
 ## 🧊 3D Surface Topology
 
 <div align="center">
-  <img src="cone.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(0,201,255,0.3); border: 2px solid #eaeaea;"/>
+  <img src="./cone.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(0,201,255,0.3); border: 2px solid #eaeaea;"/>
   <p style="color: #666; font-size: 0.9em; margin-top: 10px;"><i>3D Mapping of <code>x^2 + y^2 = z</code> featuring spatial grid rendering and depth colorization.</i></p>
 </div>
 
@@ -65,7 +65,7 @@ At its core, **Pika Plotter** is driven by a powerful synergy of Java-based tech
 ## 🌀 Polar & Parametric Kinematics
 
 <div align="center">
-  <img src="butterfly.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(121,40,202,0.4); border: 2px solid #333;"/>
+  <img src="./butterfly.jpg" width="80%" style="border-radius: 12px; box-shadow: 0 10px 25px rgba(121,40,202,0.4); border: 2px solid #333;"/>
   <p style="color: #666; font-size: 0.9em; margin-top: 10px;"><i>Polar Dark Mode: Highly complex, animated "Butterfly" curve mapping <code>r(t)</code>.</i></p>
 </div>
 
