@@ -2,6 +2,10 @@ package com.equationplotter.ui;
 
 import javafx.application.Platform;
 import javafx.scene.control.Button;
+import javafx.scene.control.TextField;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.StackPane;
 
 public class WorkspacePolarView extends StackPane {
@@ -11,11 +15,13 @@ public class WorkspacePolarView extends StackPane {
     public WorkspacePolarView(Runnable onBack) {
         GraphPolarCanvas graph = new GraphPolarCanvas();
 
+        // 1. Sync graph size with window
         widthProperty().addListener((obs, ov, nv) -> { graph.setWidth(nv.doubleValue()); graph.draw(); });
         heightProperty().addListener((obs, ov, nv) -> { graph.setHeight(nv.doubleValue()); graph.draw(); });
 
         DraggablePolarEquationPanel overlay = new DraggablePolarEquationPanel(graph::setEquations);
 
+        // 2. Buttons Setup
         Button backBtn = new Button("← Back");
         backBtn.setStyle("-fx-font-size: 14px; -fx-background-color: #9D00FF; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 16; -fx-background-radius: 5; -fx-cursor: hand;");
         backBtn.setOnAction(e -> onBack.run());
@@ -33,23 +39,57 @@ public class WorkspacePolarView extends StackPane {
             else { darkBtn.setText("🌙 Dark Mode"); darkBtn.setStyle(getLightButtonStyle()); }
         });
 
-        overlay.setManaged(false); backBtn.setManaged(false); homeBtn.setManaged(false); darkBtn.setManaged(false);
+        // ==========================================
+        // 3. UI Layer Setup (Fixes the Disappearing Buttons Bug)
+        // ==========================================
+        AnchorPane uiLayer = new AnchorPane();
+        uiLayer.setPickOnBounds(false); // Allows mouse clicks to pass through empty space to the graph
 
-        getChildren().addAll(graph, overlay, backBtn, homeBtn, darkBtn);
+        // Pin the buttons to the corners (JavaFX will automatically handle the math)
+        AnchorPane.setTopAnchor(backBtn, 20.0);
+        AnchorPane.setLeftAnchor(backBtn, 20.0);
 
-        Platform.runLater(() -> {
-            graph.setWidth(getWidth()); graph.setHeight(getHeight()); graph.draw();
-            overlay.autosize(); overlay.relocate(20, 90);
-            backBtn.autosize(); backBtn.relocate(20, 20);
-            positionHomeButton(homeBtn); positionDarkButton(darkBtn);
+        AnchorPane.setTopAnchor(overlay, 80.0);
+        AnchorPane.setLeftAnchor(overlay, 20.0);
+
+        AnchorPane.setTopAnchor(homeBtn, 20.0);
+        AnchorPane.setRightAnchor(homeBtn, 20.0);
+
+        AnchorPane.setBottomAnchor(darkBtn, 20.0);
+        AnchorPane.setRightAnchor(darkBtn, 20.0);
+
+        uiLayer.getChildren().addAll(backBtn, overlay, homeBtn, darkBtn);
+
+        // Add Graph (Bottom layer) and UI Layer (Top layer)
+        getChildren().addAll(graph, uiLayer);
+
+        // ==========================================
+        // 4. KEYBOARD SHORTCUTS: Backspace/Delete/Esc to go back
+        // ==========================================
+        this.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+            // Safety Check: If the user is typing in the equation box, DO NOT go back!
+            if (event.getTarget() instanceof TextField) {
+                return;
+            }
+
+            // If they press Backspace, Delete, or Esc, trigger the Back button
+            if (event.getCode() == KeyCode.BACK_SPACE ||
+                    event.getCode() == KeyCode.DELETE ||
+                    event.getCode() == KeyCode.ESCAPE) {
+
+                onBack.run();
+                event.consume();
+            }
         });
 
-        widthProperty().addListener((o, oldW, newW) -> { positionHomeButton(homeBtn); positionDarkButton(darkBtn); });
-        heightProperty().addListener((o, oldH, newH) -> positionDarkButton(darkBtn));
+        // 5. Initial setup
+        Platform.runLater(() -> {
+            this.requestFocus(); // Ensures the window listens for keyboard inputs immediately
+            graph.setWidth(getWidth());
+            graph.setHeight(getHeight());
+            graph.draw();
+        });
     }
-
-    private void positionHomeButton(Button btn) { double w = getWidth(); if (w > 0) { btn.autosize(); btn.relocate(w - btn.getWidth() - 20, 20); } }
-    private void positionDarkButton(Button btn) { double w = getWidth(), h = getHeight(); if (w > 0 && h > 0) { btn.autosize(); btn.relocate(w - btn.getWidth() - 20, h - btn.getHeight() - 20); } }
 
     private String getLightButtonStyle() { return "-fx-font-size: 14px; -fx-background-color: #ffffff; -fx-text-fill: #444444; -fx-border-color: #cccccc; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 8 16; -fx-font-weight: bold; -fx-cursor: hand; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 3, 0, 0, 1);"; }
     private String getDarkButtonStyle() { return "-fx-font-size: 14px; -fx-background-color: #2b2b2b; -fx-text-fill: #dddddd; -fx-border-color: #555555; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 8 16; -fx-font-weight: bold; -fx-cursor: hand; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 3, 0, 0, 1);"; }
